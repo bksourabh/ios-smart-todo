@@ -10,6 +10,7 @@ import CoreData
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
+    @EnvironmentObject var themeManager: ThemeManager
     
     @FetchRequest(
         sortDescriptors: [
@@ -21,6 +22,10 @@ struct ContentView: View {
     
     @State private var showingAddTask = false
     @State private var selectedTask: TodoTask?
+    
+    private var hasCompletedTasks: Bool {
+        tasks.contains { $0.isCompleted }
+    }
 
     var body: some View {
         NavigationView {
@@ -57,12 +62,30 @@ struct ContentView: View {
             }
             .navigationTitle("My Tasks")
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    HStack {
+                        if hasCompletedTasks {
+                            Button(action: clearCompletedTasks) {
+                                Text("Clear Completed")
+                                    .font(.subheadline)
+                            }
+                        }
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        selectedTask = nil
-                        showingAddTask = true
-                    }) {
-                        Image(systemName: "plus")
+                    HStack(spacing: 16) {
+                        Button(action: {
+                            themeManager.toggleTheme()
+                        }) {
+                            Image(systemName: themeManager.isDarkMode ? "sun.max.fill" : "moon.fill")
+                                .foregroundColor(.primary)
+                        }
+                        Button(action: {
+                            selectedTask = nil
+                            showingAddTask = true
+                        }) {
+                            Image(systemName: "plus")
+                        }
                     }
                 }
             }
@@ -97,8 +120,24 @@ struct ContentView: View {
             }
         }
     }
+    
+    private func clearCompletedTasks() {
+        withAnimation {
+            let completedTasks = tasks.filter { $0.isCompleted }
+            completedTasks.forEach { viewContext.delete($0) }
+            
+            do {
+                try viewContext.save()
+            } catch {
+                let nsError = error as NSError
+                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            }
+        }
+    }
 }
 
 #Preview {
-    ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    ContentView()
+        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+        .environmentObject(ThemeManager())
 }
