@@ -8,31 +8,26 @@
 import SwiftUI
 import CoreData
 
-enum DateType: String, CaseIterable {
-    case dueDate = "dueDate"
-    case toBeDoneIn = "toBeDoneIn"
-    
-    var displayName: String {
-        switch self {
-        case .dueDate:
-            return "Due Date"
-        case .toBeDoneIn:
-            return "To be done in"
-        }
-    }
-}
-
 struct AddEditTaskView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var notificationManager: NotificationManager
     
     var task: TodoTask?
     
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Group.name, ascending: true)],
+        animation: .default)
+    private var groups: FetchedResults<Group>
+    
     @State private var title: String = ""
-    @State private var selectedDateType: DateType = .dueDate
     @State private var dueDate: Date = Date()
-    @State private var startDate: Date = Date()
-    @State private var endDate: Date = Date().addingTimeInterval(3600) // 1 hour later
+    @State private var selectedGroup: Group?
+    @State private var showingPastDateError = false
+    
+    private var isDueDateValid: Bool {
+        return dueDate >= Date()
+    }
     
     var body: some View {
         NavigationView {
@@ -41,24 +36,20 @@ struct AddEditTaskView: View {
                     TextField("Task Title", text: $title)
                 }
                 
-                Section(header: Text("Date Type")) {
-                    Picker("Date Type", selection: $selectedDateType) {
-                        ForEach(DateType.allCases, id: \.self) { type in
-                            Text(type.displayName).tag(type)
+                Section(header: Text("Group")) {
+                    Picker("Group", selection: $selectedGroup) {
+                        Text("None").tag(nil as Group?)
+                        ForEach(groups) { group in
+                            Text(group.name ?? "Unnamed Group").tag(group as Group?)
                         }
                     }
-                    .pickerStyle(SegmentedPickerStyle())
                 }
                 
-                if selectedDateType == .dueDate {
-                    Section(header: Text("Due Date")) {
-                        DatePicker("Due Date", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
-                    }
-                } else {
-                    Section(header: Text("Time Range")) {
-                        DatePicker("Start Date", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
-                        DatePicker("End Date", selection: $endDate, displayedComponents: [.date, .hourAndMinute])
-                    }
+                Section(header: Text("Due Date"), footer: showingPastDateError ? Text("Due date cannot be in the past").foregroundColor(.red) : nil) {
+                    DatePicker("Due Date", selection: $dueDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                        .onChange(of: dueDate) { oldValue, newValue in
+                            showingPastDateError = newValue < Date()
+                        }
                 }
             }
             .navigationTitle(task == nil ? "New Task" : "Edit Task")
@@ -73,18 +64,23 @@ struct AddEditTaskView: View {
                     Button("Save") {
                         saveTask()
                     }
-                    .disabled(title.isEmpty)
+                    .disabled(title.isEmpty || !isDueDateValid)
                 }
             }
             .onAppear {
                 if let task = task {
                     title = task.title ?? ""
-                    if let dateType = task.dateType {
-                        selectedDateType = DateType(rawValue: dateType) ?? .dueDate
+                    // Ensure due date is not in the past
+                    let taskDueDate = task.dueDate ?? Date()
+                    dueDate = taskDueDate < Date() ? Date() : taskDueDate
+                    selectedGroup = task.group
+                    showingPastDateError = false
+                } else {
+                    // For new tasks, ensure due date is not in the past
+                    if dueDate < Date() {
+                        dueDate = Date()
                     }
-                    dueDate = task.dueDate ?? Date()
-                    startDate = task.startDate ?? Date()
-                    endDate = task.endDate ?? Date().addingTimeInterval(3600)
+                    showingPastDateError = false
                 }
             }
         }
@@ -92,6 +88,12 @@ struct AddEditTaskView: View {
     
     private func saveTask() {
         withAnimation {
+            // Validate due date is not in the past
+            if dueDate < Date() {
+                showingPastDateError = true
+                return
+            }
+            
             let taskToSave: TodoTask
             if let existingTask = task {
                 taskToSave = existingTask
@@ -103,20 +105,16 @@ struct AddEditTaskView: View {
             }
             
             taskToSave.title = title
-            taskToSave.dateType = selectedDateType.rawValue
-            
-            if selectedDateType == .dueDate {
-                taskToSave.dueDate = dueDate
-                taskToSave.startDate = nil
-                taskToSave.endDate = nil
-            } else {
-                taskToSave.dueDate = nil
-                taskToSave.startDate = startDate
-                taskToSave.endDate = endDate
-            }
+            taskToSave.dateType = "dueDate"
+            taskToSave.group = selectedGroup
+            taskToSave.dueDate = dueDate
+            taskToSave.startDate = nil
+            taskToSave.endDate = nil
             
             do {
                 try viewContext.save()
+                // Schedule notification if task is due today
+                notificationManager.scheduleNotification(for: taskToSave)
                 dismiss()
             } catch {
                 let nsError = error as NSError

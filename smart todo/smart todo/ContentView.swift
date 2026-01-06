@@ -11,6 +11,7 @@ import CoreData
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var notificationManager: NotificationManager
     
     @FetchRequest(
         sortDescriptors: [
@@ -18,10 +19,26 @@ struct ContentView: View {
             NSSortDescriptor(keyPath: \TodoTask.createdAt, ascending: false)
         ],
         animation: .default)
-    private var tasks: FetchedResults<TodoTask>
+    private var allTasks: FetchedResults<TodoTask>
+    
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Group.name, ascending: true)],
+        animation: .default)
+    private var groups: FetchedResults<Group>
     
     @State private var showingAddTask = false
     @State private var selectedTask: TodoTask?
+    @State private var showingSettings = false
+    @State private var showingGroupManager = false
+    @State private var selectedFilterGroup: Group?
+    
+    private var tasks: [TodoTask] {
+        if let selectedFilterGroup = selectedFilterGroup {
+            return allTasks.filter { $0.group == selectedFilterGroup }
+        } else {
+            return Array(allTasks)
+        }
+    }
     
     private var hasCompletedTasks: Bool {
         tasks.contains { $0.isCompleted }
@@ -35,10 +52,10 @@ struct ContentView: View {
                         Image(systemName: "checklist")
                             .font(.system(size: 60))
                             .foregroundColor(.gray)
-                        Text("No tasks yet")
+                        Text(selectedFilterGroup == nil ? "No tasks yet" : "No tasks in this group")
                             .font(.title2)
                             .foregroundColor(.gray)
-                        Text("Tap the + button to add your first task")
+                        Text(selectedFilterGroup == nil ? "Tap the + button to add your first task" : "Add tasks to this group or change the filter")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -62,6 +79,44 @@ struct ContentView: View {
             }
             .navigationTitle("My Tasks")
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Menu {
+                        Button(action: {
+                            selectedFilterGroup = nil
+                        }) {
+                            HStack {
+                                Text("All Tasks")
+                                if selectedFilterGroup == nil {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                        Divider()
+                        ForEach(groups) { group in
+                            Button(action: {
+                                selectedFilterGroup = group
+                            }) {
+                                HStack {
+                                    Text(group.name ?? "Unnamed Group")
+                                    if selectedFilterGroup == group {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "line.3.horizontal.decrease.circle")
+                            if let selectedGroup = selectedFilterGroup {
+                                Text(selectedGroup.name ?? "Filtered")
+                                    .font(.subheadline)
+                            } else {
+                                Text("All")
+                                    .font(.subheadline)
+                            }
+                        }
+                    }
+                }
                 ToolbarItem(placement: .navigationBarLeading) {
                     HStack {
                         if hasCompletedTasks {
@@ -74,6 +129,16 @@ struct ContentView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 16) {
+                        Button(action: {
+                            showingGroupManager = true
+                        }) {
+                            Image(systemName: "folder")
+                        }
+                        Button(action: {
+                            showingSettings = true
+                        }) {
+                            Image(systemName: "gearshape")
+                        }
                         Button(action: {
                             themeManager.toggleTheme()
                         }) {
@@ -92,12 +157,30 @@ struct ContentView: View {
             .sheet(isPresented: $showingAddTask) {
                 AddEditTaskView(task: selectedTask)
             }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+            }
+            .sheet(isPresented: $showingGroupManager) {
+                GroupManagerView()
+            }
+            .onAppear {
+                // Reschedule notifications when view appears
+                notificationManager.scheduleNotificationsForTodayTasks(context: viewContext)
+            }
         }
     }
     
     private func toggleTaskCompletion(_ task: TodoTask) {
         withAnimation {
             task.isCompleted.toggle()
+            
+            // Cancel notification if task is completed
+            if task.isCompleted {
+                notificationManager.cancelNotification(for: task)
+            } else {
+                // Reschedule notification if task is uncompleted and due today
+                notificationManager.scheduleNotification(for: task)
+            }
             
             do {
                 try viewContext.save()
@@ -110,7 +193,10 @@ struct ContentView: View {
     
     private func deleteTasks(offsets: IndexSet) {
         withAnimation {
-            offsets.map { tasks[$0] }.forEach(viewContext.delete)
+            let tasksToDelete = offsets.map { tasks[$0] }
+            // Cancel notifications for deleted tasks
+            tasksToDelete.forEach { notificationManager.cancelNotification(for: $0) }
+            tasksToDelete.forEach(viewContext.delete)
             
             do {
                 try viewContext.save()
@@ -124,6 +210,8 @@ struct ContentView: View {
     private func clearCompletedTasks() {
         withAnimation {
             let completedTasks = tasks.filter { $0.isCompleted }
+            // Cancel notifications for completed tasks being deleted
+            completedTasks.forEach { notificationManager.cancelNotification(for: $0) }
             completedTasks.forEach { viewContext.delete($0) }
             
             do {
@@ -140,4 +228,5 @@ struct ContentView: View {
     ContentView()
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
         .environmentObject(ThemeManager())
+        .environmentObject(NotificationManager.shared)
 }

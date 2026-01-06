@@ -22,50 +22,41 @@ struct TaskRow: View {
             .buttonStyle(PlainButtonStyle())
             
             VStack(alignment: .leading, spacing: 6) {
-                Text(task.title ?? "Untitled Task")
-                    .strikethrough(task.isCompleted)
-                    .foregroundColor(task.isCompleted ? .gray : .primary)
-                    .font(.body)
+                HStack(spacing: 8) {
+                    Text(task.title ?? "Untitled Task")
+                        .strikethrough(task.isCompleted)
+                        .foregroundColor(task.isCompleted ? .gray : .primary)
+                        .font(.body)
+                    
+                    if let group = task.group, let groupName = group.name {
+                        Text(groupName)
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(4)
+                    }
+                }
                 
                 // Display date information
-                if let dateType = task.dateType {
-                    if dateType == "dueDate", let dueDate = task.dueDate {
-                        HStack(spacing: 4) {
-                            Image(systemName: "calendar")
-                                .font(.caption)
-                            Text("Due: \(formatDate(dueDate))")
-                                .font(.caption)
-                                .foregroundColor(isOverdue(dueDate) ? .red : .secondary)
-                            
-                            if isOverdue(dueDate) {
-                                Text("OVERDUE")
-                                    .font(.caption2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.red)
-                                    .cornerRadius(4)
-                            }
-                        }
-                    } else if dateType == "toBeDoneIn", let startDate = task.startDate, let endDate = task.endDate {
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock")
-                                .font(.caption)
-                            Text("\(formatDate(startDate)) - \(formatDate(endDate))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            if isOverdue(endDate) {
-                                Text("OVERDUE")
-                                    .font(.caption2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.red)
-                                    .cornerRadius(4)
-                            }
+                if let dueDate = task.dueDate {
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.caption)
+                        Text("Due: \(formatDate(dueDate))")
+                            .font(.caption)
+                            .foregroundColor(isOverdue(dueDate) ? .red : .secondary)
+                        
+                        if isOverdue(dueDate) {
+                            Text("OVERDUE")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.red)
+                                .cornerRadius(4)
                         }
                     }
                 }
@@ -91,12 +82,8 @@ struct TaskRow: View {
     }
     
     private func isOverdue() -> Bool {
-        if let dateType = task.dateType {
-            if dateType == "dueDate", let dueDate = task.dueDate {
-                return isOverdue(dueDate)
-            } else if dateType == "toBeDoneIn", let endDate = task.endDate {
-                return isOverdue(endDate)
-            }
+        if let dueDate = task.dueDate {
+            return isOverdue(dueDate)
         }
         return false
     }
