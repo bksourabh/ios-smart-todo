@@ -165,7 +165,7 @@ struct AddEditGroupView: View {
                     Toggle(isOn: $notifyWhenAwayFromLocation) {
                         Text("Notify when \(locationNotificationDistance) metres away from current location")
                     }
-                    .onChange(of: notifyWhenAwayFromLocation) { newValue in
+                    .onChange(of: notifyWhenAwayFromLocation) { oldValue, newValue in
                         if newValue {
                             handleLocationToggleEnabled()
                         }
@@ -176,9 +176,6 @@ struct AddEditGroupView: View {
                             ForEach(1...50, id: \.self) { distance in
                                 Text("\(distance)").tag(distance)
                             }
-                        }
-                        .onChange(of: locationNotificationDistance) { newValue in
-                            // Update toggle text will happen automatically via binding
                         }
                         
                         if isFetchingLocation {

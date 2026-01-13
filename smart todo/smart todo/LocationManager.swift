@@ -32,7 +32,8 @@ final class LocationManager: NSObject, ObservableObject {
             return authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
         }
         
-        locationManager.requestWhenInUseAuthorization()
+        // Request "Always" permission to show both "While Using" and "Always" options
+        locationManager.requestAlwaysAuthorization()
         
         // Wait for authorization status to change
         return await withCheckedContinuation { continuation in
@@ -52,10 +53,8 @@ final class LocationManager: NSObject, ObservableObject {
             throw LocationError.notAuthorized
         }
         
-        // Check if location services are enabled
-        guard CLLocationManager.locationServicesEnabled() else {
-            throw LocationError.locationServicesDisabled
-        }
+        // Note: We don't check locationServicesEnabled() here as it can cause UI unresponsiveness.
+        // The location manager will handle errors appropriately through the delegate.
         
         return try await withCheckedThrowingContinuation { continuation in
             locationContinuation = continuation
@@ -80,7 +79,21 @@ extension LocationManager: CLLocationManagerDelegate {
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         locationError = error
-        locationContinuation?.resume(throwing: error)
+        
+        // Map CLLocationManager errors to our custom error types
+        let mappedError: Error
+        if let clError = error as? CLError {
+            switch clError.code {
+            case .denied, .locationUnknown:
+                mappedError = LocationError.locationServicesDisabled
+            default:
+                mappedError = LocationError.locationUnavailable
+            }
+        } else {
+            mappedError = error
+        }
+        
+        locationContinuation?.resume(throwing: mappedError)
         locationContinuation = nil
     }
     

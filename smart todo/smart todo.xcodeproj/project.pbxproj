@@ -401,6 +401,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Smart Todo";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Smart Todo needs your location to notify you when you are away from a group's location. Choose 'Always' to receive notifications even when the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Smart Todo needs your location to notify you when you are away from a group's location.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -435,6 +436,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Smart Todo";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Smart Todo needs your location to notify you when you are away from a group's location. Choose 'Always' to receive notifications even when the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Smart Todo needs your location to notify you when you are away from a group's location.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
