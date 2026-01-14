@@ -29,6 +29,7 @@ struct ContentView: View {
     @State private var showingAddTask = false
     @State private var selectedTask: TodoTask?
     @State private var showingGroupManager = false
+    @State private var showingPointOfInterestManager = false
     @State private var selectedFilterGroup: Group?
     
     private var tasks: [TodoTask] {
@@ -132,6 +133,11 @@ struct ContentView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 16) {
                         Button(action: {
+                            showingPointOfInterestManager = true
+                        }) {
+                            Image(systemName: "mappin.circle")
+                        }
+                        Button(action: {
                             showingGroupManager = true
                         }) {
                             Image(systemName: "folder")
@@ -156,6 +162,9 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingGroupManager) {
                 GroupManagerView()
+            }
+            .sheet(isPresented: $showingPointOfInterestManager) {
+                PointOfInterestManagerView()
             }
             .onAppear {
                 // Reschedule notifications when view appears

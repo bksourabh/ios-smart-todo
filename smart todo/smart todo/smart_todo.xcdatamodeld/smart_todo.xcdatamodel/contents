@@ -22,8 +22,17 @@
         <attribute name="notificationMinutes" optional="YES" attributeType="Integer 16" defaultValueString="1" usesScalarValueType="YES"/>
         <relationship name="group" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Group" inverseName="tasks" inverseEntity="Group"/>
     </entity>
+    <entity name="PointOfInterest" representedClassName="PointOfInterest" syncable="YES" codeGenerationType="class">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="name" attributeType="String"/>
+        <attribute name="address" optional="YES" attributeType="String"/>
+        <attribute name="latitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="longitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
     <elements>
         <element name="TodoTask" positionX="-63" positionY="-18" width="128" height="179"/>
         <element name="Group" positionX="-54" positionY="9" width="128" height="88"/>
+        <element name="PointOfInterest" positionX="-54" positionY="117" width="128" height="103"/>
     </elements>
 </model>
