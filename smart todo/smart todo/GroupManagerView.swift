@@ -124,18 +124,24 @@ struct AddEditGroupView: View {
         name.trimmingCharacters(in: .whitespaces)
     }
     
+    private var nameWithoutSpaces: String {
+        trimmedName.replacingOccurrences(of: " ", with: "")
+    }
+    
     private var isNameValid: Bool {
-        !trimmedName.isEmpty && trimmedName.count <= 5
+        !trimmedName.isEmpty && trimmedName.count <= 15 && !trimmedName.contains(" ")
     }
     
     private var nameBinding: Binding<String> {
         Binding(
             get: { name },
             set: { newValue in
-                if newValue.count <= 5 {
-                    name = newValue
+                // Remove spaces and limit to 15 characters
+                let noSpaces = newValue.replacingOccurrences(of: " ", with: "")
+                if noSpaces.count <= 15 {
+                    name = noSpaces
                 } else {
-                    name = String(newValue.prefix(5))
+                    name = String(noSpaces.prefix(15))
                 }
             }
         )
@@ -152,12 +158,12 @@ struct AddEditGroupView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Group Details"), footer: Text(trimmedName.count > 5 ? "Group name must be 5 characters or less" : "").foregroundColor(.red)) {
-                    TextField("Group Name (max 5 characters)", text: nameBinding)
+                Section(header: Text("Group Details"), footer: Text(!isNameValid && !trimmedName.isEmpty ? (trimmedName.contains(" ") ? "Group name cannot contain spaces" : "Group name must be 15 characters or less") : "").foregroundColor(.red)) {
+                    TextField("Group Name (max 15 characters, no spaces)", text: nameBinding)
                     if trimmedName.count > 0 {
-                        Text("\(trimmedName.count)/5 characters")
+                        Text("\(trimmedName.count)/15 characters")
                             .font(.caption)
-                            .foregroundColor(trimmedName.count > 5 ? .red : .secondary)
+                            .foregroundColor(trimmedName.count > 15 || trimmedName.contains(" ") ? .red : .secondary)
                     }
                 }
                 

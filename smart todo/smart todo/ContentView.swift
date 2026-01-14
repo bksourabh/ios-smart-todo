@@ -28,7 +28,6 @@ struct ContentView: View {
     
     @State private var showingAddTask = false
     @State private var selectedTask: TodoTask?
-    @State private var showingSettings = false
     @State private var showingGroupManager = false
     @State private var selectedFilterGroup: Group?
     
@@ -77,42 +76,45 @@ struct ContentView: View {
                     .listStyle(PlainListStyle())
                 }
             }
-            .navigationTitle("My Tasks")
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Menu {
-                        Button(action: {
-                            selectedFilterGroup = nil
-                        }) {
-                            HStack {
-                                Text("All Tasks")
-                                if selectedFilterGroup == nil {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                        Divider()
-                        ForEach(groups) { group in
+                    HStack(spacing: 12) {
+                        Text("My Tasks")
+                            .font(.headline)
+                        Menu {
                             Button(action: {
-                                selectedFilterGroup = group
+                                selectedFilterGroup = nil
                             }) {
                                 HStack {
-                                    Text(group.name ?? "Unnamed Group")
-                                    if selectedFilterGroup == group {
+                                    Text("All Tasks")
+                                    if selectedFilterGroup == nil {
                                         Image(systemName: "checkmark")
                                     }
                                 }
                             }
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                            if let selectedGroup = selectedFilterGroup {
-                                Text(selectedGroup.name ?? "Filtered")
-                                    .font(.subheadline)
-                            } else {
-                                Text("All")
-                                    .font(.subheadline)
+                            Divider()
+                            ForEach(groups) { group in
+                                Button(action: {
+                                    selectedFilterGroup = group
+                                }) {
+                                    HStack {
+                                        Text(group.name ?? "Unnamed Group")
+                                        if selectedFilterGroup == group {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "line.3.horizontal.decrease.circle")
+                                if let selectedGroup = selectedFilterGroup {
+                                    Text(selectedGroup.name ?? "Filtered")
+                                        .font(.subheadline)
+                                } else {
+                                    Text("All")
+                                        .font(.subheadline)
+                                }
                             }
                         }
                     }
@@ -135,11 +137,6 @@ struct ContentView: View {
                             Image(systemName: "folder")
                         }
                         Button(action: {
-                            showingSettings = true
-                        }) {
-                            Image(systemName: "gearshape")
-                        }
-                        Button(action: {
                             themeManager.toggleTheme()
                         }) {
                             Image(systemName: themeManager.isDarkMode ? "sun.max.fill" : "moon.fill")
@@ -156,9 +153,6 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingAddTask) {
                 AddEditTaskView(task: selectedTask)
-            }
-            .sheet(isPresented: $showingSettings) {
-                SettingsView()
             }
             .sheet(isPresented: $showingGroupManager) {
                 GroupManagerView()
