@@ -829,17 +829,27 @@ struct MapLocationPickerView: View {
         searchResults = []
 
         Task {
+            // Get device's current location first
+            var searchCenter = region.center
+            if let currentLocation = try? await locationManager.getCurrentLocation() {
+                searchCenter = currentLocation.coordinate
+            }
+
+            // 50km radius - approximately 0.45 degrees latitude
+            let radiusInDegrees = 0.45
+            let searchRegion = MKCoordinateRegion(
+                center: searchCenter,
+                span: MKCoordinateSpan(latitudeDelta: radiusInDegrees * 2, longitudeDelta: radiusInDegrees * 2)
+            )
+
             // Search for various nearby place types
-            let searchQueries = ["restaurant", "cafe", "grocery", "pharmacy", "bank", "gas station"]
+            let searchQueries = ["restaurant", "cafe", "grocery", "supermarket", "pharmacy", "bank", "gas station", "hospital", "hotel", "shopping"]
             var allResults: [MKMapItem] = []
 
             for query in searchQueries {
                 let request = MKLocalSearch.Request()
                 request.naturalLanguageQuery = query
-                request.region = MKCoordinateRegion(
-                    center: region.center,
-                    span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-                )
+                request.region = searchRegion
 
                 let search = MKLocalSearch(request: request)
                 do {
@@ -852,19 +862,44 @@ struct MapLocationPickerView: View {
 
             await MainActor.run {
                 self.isSearching = false
+
+                // Filter to only include results within 50km
+                let maxDistance: CLLocationDistance = 50000 // 50km in meters
+                let centerLocation = CLLocation(latitude: searchCenter.latitude, longitude: searchCenter.longitude)
+
+                let filteredResults = allResults.filter { item in
+                    let itemLocation = CLLocation(latitude: item.location.coordinate.latitude, longitude: item.location.coordinate.longitude)
+                    return itemLocation.distance(from: centerLocation) <= maxDistance
+                }
+
                 // Remove duplicates based on location
                 var uniqueResults: [MKMapItem] = []
                 var seenLocations: Set<String> = []
-                for item in allResults {
+                for item in filteredResults {
                     let key = "\(item.location.coordinate.latitude)-\(item.location.coordinate.longitude)"
                     if !seenLocations.contains(key) {
                         seenLocations.insert(key)
                         uniqueResults.append(item)
                     }
                 }
-                self.searchResults = uniqueResults
-                self.showingSearchResults = !uniqueResults.isEmpty
+
+                // Sort by distance (nearest first)
+                let sortedResults = uniqueResults.sorted { item1, item2 in
+                    let loc1 = CLLocation(latitude: item1.location.coordinate.latitude, longitude: item1.location.coordinate.longitude)
+                    let loc2 = CLLocation(latitude: item2.location.coordinate.latitude, longitude: item2.location.coordinate.longitude)
+                    return loc1.distance(from: centerLocation) < loc2.distance(from: centerLocation)
+                }
+
+                self.searchResults = sortedResults
+                self.showingSearchResults = !sortedResults.isEmpty
                 self.searchText = ""
+
+                // Update region to show current location
+                self.region = MKCoordinateRegion(
+                    center: searchCenter,
+                    span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
+                )
+                self.mapPosition = .region(self.region)
             }
         }
     }

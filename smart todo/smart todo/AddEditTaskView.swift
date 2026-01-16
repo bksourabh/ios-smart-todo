@@ -138,7 +138,7 @@ struct AddEditTaskView: View {
                         }
                     } else {
                         // Location-based notification
-                        Picker("Distance", selection: $locationNotificationDistance) {
+                        Picker("Notification Distance", selection: $locationNotificationDistance) {
                             ForEach(1...50, id: \.self) { distance in
                                 Text("\(distance) metre\(distance == 1 ? "" : "s")").tag(distance)
                             }
