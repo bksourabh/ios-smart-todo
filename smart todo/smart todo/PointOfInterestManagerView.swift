@@ -135,23 +135,8 @@ struct AddEditPointOfInterestView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Location Details")) {
+                Section(header: Text("Location Name")) {
                     TextField("Location Name", text: $name)
-                    
-                    if !address.isEmpty {
-                        Text(address)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    if latitude != 0.0 && longitude != 0.0 {
-                        Text(String(format: "Latitude: %.6f", latitude))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(String(format: "Longitude: %.6f", longitude))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
                 }
                 
                 Section(header: Text("Select Location")) {
@@ -162,6 +147,24 @@ struct AddEditPointOfInterestView: View {
                             Image(systemName: "map")
                             Text("Choose Location on Map")
                         }
+                    }
+                }
+                
+                // Only show location details after a location is selected
+                if isLocationValid {
+                    Section(header: Text("Location Details")) {
+                        if !address.isEmpty {
+                            Text(address)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text(String(format: "Latitude: %.6f", latitude))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(String(format: "Longitude: %.6f", longitude))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -257,6 +260,7 @@ struct MapLocationPickerView: View {
     @State private var selectedPlaceAddress: String = ""
     @State private var isFetchingLocation = false
     @State private var isGeocoding = false
+    @State private var searchTask: Task<Void, Never>?
     
     var body: some View {
         NavigationView {
@@ -286,112 +290,146 @@ struct MapLocationPickerView: View {
                             )
                     )
                     
-                    VStack {
-                    HStack {
-                        TextField("Search for location", text: $searchText)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .onSubmit {
-                                searchLocation()
-                            }
-                        Button(action: searchLocation) {
-                            Image(systemName: "magnifyingglass")
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemBackground))
-                    .cornerRadius(10)
-                    .shadow(radius: 5)
-                    .padding()
-                    
-                    if showingSearchResults && !searchResults.isEmpty {
-                        List(searchResults) { item in
-                            Button(action: {
-                                selectSearchResult(item)
-                            }) {
-                                VStack(alignment: .leading) {
-                                    Text(item.name ?? "Unknown")
-                                        .font(.headline)
-                                    if let address = item.placemark.title {
-                                        Text(address)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
+                    VStack(spacing: 0) {
+                        HStack {
+                            TextField("Search for location", text: $searchText)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .onChange(of: searchText) { oldValue, newValue in
+                                    // Cancel previous search task
+                                    searchTask?.cancel()
+                                    
+                                    // Perform search as user types (with debounce)
+                                    if !newValue.isEmpty {
+                                        searchTask = Task {
+                                            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+                                            if !Task.isCancelled {
+                                                await MainActor.run {
+                                                    searchLocation()
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        showingSearchResults = false
+                                        searchResults = []
                                     }
                                 }
+                                .onSubmit {
+                                    searchLocation()
+                                }
+                            Button(action: searchLocation) {
+                                Image(systemName: "magnifyingglass")
                             }
                         }
-                        .frame(maxHeight: 200)
-                        .background(Color(.systemBackground))
-                        .cornerRadius(10)
-                        .shadow(radius: 5)
-                        .padding(.horizontal)
-                    }
-                    
-                    Spacer()
-                    
-                    // Place details above Select button
-                    if !selectedPlaceName.isEmpty || !selectedPlaceAddress.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            if !selectedPlaceName.isEmpty {
-                                Text(selectedPlaceName)
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                            }
-                            if !selectedPlaceAddress.isEmpty {
-                                Text(selectedPlaceAddress)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
                         .background(Color(.systemBackground))
                         .cornerRadius(10)
                         .shadow(radius: 5)
-                        .padding(.horizontal)
-                    }
-                    
-                    // Zoom controls
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 8) {
-                            Button(action: zoomIn) {
-                                Image(systemName: "plus")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color(.systemBackground))
-                                    .cornerRadius(8)
-                                    .shadow(radius: 2)
+                        .padding()
+                        
+                        // Dropdown suggestions
+                        if showingSearchResults && !searchResults.isEmpty {
+                            let topResults = Array(searchResults.prefix(5))
+                            VStack(spacing: 0) {
+                                ForEach(topResults) { item in
+                                    Button(action: {
+                                        selectSearchResult(item)
+                                    }) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(item.name ?? "Unknown")
+                                                .font(.headline)
+                                                .foregroundColor(.primary)
+                                            if let address = item.placemark.title {
+                                                Text(address)
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 10)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    
+                                    if item.id != topResults.last?.id {
+                                        Divider()
+                                            .padding(.leading, 12)
+                                    }
+                                }
                             }
-                            
-                            Button(action: zoomOut) {
-                                Image(systemName: "minus")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color(.systemBackground))
-                                    .cornerRadius(8)
-                                    .shadow(radius: 2)
-                            }
-                        }
-                        .padding(.trailing)
-                    }
-                    .padding(.top)
-                    
-                    Button(action: {
-                        selectCurrentLocation()
-                    }) {
-                        Text("Select")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(isLocationSelected ? Color.blue : Color.gray)
+                            .background(Color(.systemBackground))
                             .cornerRadius(10)
+                            .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+                            .padding(.horizontal)
+                            .padding(.top, -10)
+                            .zIndex(1)
+                        }
+                        
+                        Spacer()
+                        
+                        // Place details above Select button
+                        if !selectedPlaceName.isEmpty || !selectedPlaceAddress.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                if !selectedPlaceName.isEmpty {
+                                    Text(selectedPlaceName)
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                }
+                                if !selectedPlaceAddress.isEmpty {
+                                    Text(selectedPlaceAddress)
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(Color(.systemBackground))
+                            .cornerRadius(10)
+                            .shadow(radius: 5)
+                            .padding(.horizontal)
+                        }
+                        
+                        // Zoom controls
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 8) {
+                                Button(action: zoomIn) {
+                                    Image(systemName: "plus")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                        .frame(width: 44, height: 44)
+                                        .background(Color(.systemBackground))
+                                        .cornerRadius(8)
+                                        .shadow(radius: 2)
+                                }
+                                
+                                Button(action: zoomOut) {
+                                    Image(systemName: "minus")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                        .frame(width: 44, height: 44)
+                                        .background(Color(.systemBackground))
+                                        .cornerRadius(8)
+                                        .shadow(radius: 2)
+                                }
+                            }
+                            .padding(.trailing)
+                        }
+                        .padding(.top)
+                        
+                        Button(action: {
+                            selectCurrentLocation()
+                        }) {
+                            Text("Select")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(isLocationSelected ? Color.blue : Color.gray)
+                                .cornerRadius(10)
+                        }
+                        .disabled(!isLocationSelected)
+                        .padding()
                     }
-                    .disabled(!isLocationSelected)
-                    .padding()
-                }
                 }
             }
             .navigationTitle("Select Location")
@@ -546,7 +584,11 @@ struct MapLocationPickerView: View {
     }
     
     private func searchLocation() {
-        guard !searchText.isEmpty else { return }
+        guard !searchText.isEmpty else {
+            searchResults = []
+            showingSearchResults = false
+            return
+        }
         
         isSearching = true
         let request = MKLocalSearch.Request()
@@ -556,29 +598,29 @@ struct MapLocationPickerView: View {
         let search = MKLocalSearch(request: request)
         search.start { response, error in
             DispatchQueue.main.async {
-                isSearching = false
+                self.isSearching = false
                 if let error = error {
                     print("Search error: \(error.localizedDescription)")
-                    searchResults = []
-                    showingSearchResults = false
+                    self.searchResults = []
+                    self.showingSearchResults = false
                     return
                 }
                 
                 if let response = response {
-                    searchResults = response.mapItems
-                    showingSearchResults = true
+                    self.searchResults = response.mapItems
+                    self.showingSearchResults = !response.mapItems.isEmpty
                     
                     // Move map to first result if available
                     if let firstResult = response.mapItems.first {
                         let coordinate = firstResult.placemark.coordinate
-                        region = MKCoordinateRegion(
+                        self.region = MKCoordinateRegion(
                             center: coordinate,
                             span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
                         )
                     }
                 } else {
-                    searchResults = []
-                    showingSearchResults = false
+                    self.searchResults = []
+                    self.showingSearchResults = false
                 }
             }
         }
