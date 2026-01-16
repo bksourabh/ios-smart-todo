@@ -201,11 +201,15 @@ struct AddEditPointOfInterestView: View {
                 MapLocationPickerView(
                     region: $mapRegion,
                     selectedLocation: $selectedLocation,
-                    onLocationSelected: { location, addressString in
+                    onLocationSelected: { location, addressString, searchString in
                         latitude = location.latitude
                         longitude = location.longitude
                         address = addressString
                         selectedLocation = location
+                        // Populate name with search string if present and name is empty
+                        if let searchString = searchString, !searchString.isEmpty, name.isEmpty {
+                            name = searchString
+                        }
                         showingMap = false
                     }
                 )
@@ -246,7 +250,7 @@ struct MapLocationPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var region: MKCoordinateRegion
     @Binding var selectedLocation: CLLocationCoordinate2D?
-    var onLocationSelected: (CLLocationCoordinate2D, String) -> Void
+    var onLocationSelected: (CLLocationCoordinate2D, String, String?) -> Void
     
     @StateObject private var locationManager = LocationManager.shared
     
@@ -650,6 +654,7 @@ struct MapLocationPickerView: View {
     
     private func selectCurrentLocation() {
         let location: CLLocationCoordinate2D
+        let searchString: String? = searchText.isEmpty ? nil : searchText
         
         if let mapItem = mapSelection {
             location = mapItem.placemark.coordinate
@@ -659,13 +664,13 @@ struct MapLocationPickerView: View {
             } else {
                 selectedPlaceAddress = ""
             }
-            onLocationSelected(location, selectedPlaceAddress)
+            onLocationSelected(location, selectedPlaceAddress, searchString)
         } else if let droppedPin = droppedPinCoordinate {
             location = droppedPin
-            onLocationSelected(location, selectedPlaceAddress)
+            onLocationSelected(location, selectedPlaceAddress, searchString)
         } else if let selectedLoc = selectedLocation {
             location = selectedLoc
-            onLocationSelected(location, selectedPlaceAddress)
+            onLocationSelected(location, selectedPlaceAddress, searchString)
         } else {
             // Fallback to center if nothing is selected
             location = region.center
@@ -687,7 +692,7 @@ struct MapLocationPickerView: View {
                         addressString = components.joined(separator: ", ")
                     }
                     
-                    self.onLocationSelected(location, addressString)
+                    self.onLocationSelected(location, addressString, searchString)
                 }
             }
         }

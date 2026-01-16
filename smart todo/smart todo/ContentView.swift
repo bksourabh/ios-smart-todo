@@ -79,10 +79,7 @@ struct ContentView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    HStack(spacing: 12) {
-                        Text("My Tasks")
-                            .font(.headline)
-                        Menu {
+                    Menu {
                             Button(action: {
                                 selectedFilterGroup = nil
                             }) {
@@ -118,7 +115,6 @@ struct ContentView: View {
                                 }
                             }
                         }
-                    }
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     HStack {
