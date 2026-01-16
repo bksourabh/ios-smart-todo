@@ -275,13 +275,20 @@ struct MapLocationPickerView: View {
     @State private var isGeocoding = false
     @State private var searchTask: Task<Void, Never>?
     @State private var hasUserSelectedLocation = false
+    @State private var mapPosition: MapCameraPosition = .automatic
     
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
                 ZStack {
-                    Map(coordinateRegion: $region, annotationItems: annotationItems) { pin in
-                        MapMarker(coordinate: pin.coordinate, tint: .red)
+                    Map(position: $mapPosition) {
+                        ForEach(annotationItems) { pin in
+                            Marker("", coordinate: pin.coordinate)
+                                .tint(.red)
+                        }
+                    }
+                    .onMapCameraChange { context in
+                        region = context.region
                     }
                     .overlay(
                         VStack {
@@ -352,8 +359,8 @@ struct MapLocationPickerView: View {
                                             Text(item.name ?? "Unknown")
                                                 .font(.headline)
                                                 .foregroundColor(.primary)
-                                            if let address = item.placemark.title {
-                                                Text(address)
+                                            if let address = item.address {
+                                                Text(formatAddress(address))
                                                     .font(.caption)
                                                     .foregroundColor(.secondary)
                                             }
@@ -456,6 +463,9 @@ struct MapLocationPickerView: View {
                 }
             }
             .onAppear {
+                // Initialize mapPosition from region
+                mapPosition = .region(region)
+
                 // If an initial location is provided (e.g., when editing), use it
                 if let initialLoc = initialLocation {
                     droppedPinCoordinate = initialLoc
@@ -539,6 +549,7 @@ struct MapLocationPickerView: View {
                             center: coordinate,
                             span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
                         )
+                        mapPosition = .region(region)
                         // Only set initial location if user hasn't selected one yet
                         if !hasUserSelectedLocation {
                             droppedPinCoordinate = coordinate
@@ -562,35 +573,72 @@ struct MapLocationPickerView: View {
     
     private func geocodeLocation(coordinate: CLLocationCoordinate2D) {
         isGeocoding = true
-        let geocoder = CLGeocoder()
-        let clLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        
-        geocoder.reverseGeocodeLocation(clLocation) { placemarks, error in
-            DispatchQueue.main.async {
-                self.isGeocoding = false
-                if let placemark = placemarks?.first {
-                    // Get place name
-                    if let name = placemark.name {
-                        self.selectedPlaceName = name
-                    } else if let thoroughfare = placemark.thoroughfare {
-                        self.selectedPlaceName = thoroughfare
+        Task {
+            do {
+                let clLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                guard let request = MKReverseGeocodingRequest(location: clLocation) else {
+                    await MainActor.run {
+                        self.isGeocoding = false
+                        self.selectedPlaceName = "Selected Location"
+                        self.selectedPlaceAddress = String(format: "Lat: %.6f, Long: %.6f", coordinate.latitude, coordinate.longitude)
+                    }
+                    return
+                }
+                let mapItems = try await request.mapItems
+                await MainActor.run {
+                    self.isGeocoding = false
+                    if let firstItem = mapItems.first {
+                        // Get place name
+                        if let name = firstItem.name {
+                            self.selectedPlaceName = name
+                        } else if let address = firstItem.address, let shortAddr = address.shortAddress {
+                            self.selectedPlaceName = shortAddr
+                        } else {
+                            self.selectedPlaceName = "Selected Location"
+                        }
+
+                        // Get full address
+                        if let address = firstItem.address {
+                            self.selectedPlaceAddress = address.fullAddress
+                        } else {
+                            self.selectedPlaceAddress = String(format: "Lat: %.6f, Long: %.6f", coordinate.latitude, coordinate.longitude)
+                        }
                     } else {
                         self.selectedPlaceName = "Selected Location"
+                        self.selectedPlaceAddress = String(format: "Lat: %.6f, Long: %.6f", coordinate.latitude, coordinate.longitude)
                     }
-                    
-                    // Get full address
-                    let components = [
-                        placemark.subThoroughfare,
-                        placemark.thoroughfare,
-                        placemark.locality,
-                        placemark.administrativeArea,
-                        placemark.postalCode,
-                        placemark.country
-                    ].compactMap { $0 }
-                    self.selectedPlaceAddress = components.joined(separator: ", ")
-                } else {
+                }
+            } catch {
+                await MainActor.run {
+                    self.isGeocoding = false
                     self.selectedPlaceName = "Selected Location"
                     self.selectedPlaceAddress = String(format: "Lat: %.6f, Long: %.6f", coordinate.latitude, coordinate.longitude)
+                }
+            }
+        }
+    }
+
+    private func reverseGeocode(coordinate: CLLocationCoordinate2D, completion: @escaping (String) -> Void) {
+        Task {
+            do {
+                let clLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                guard let request = MKReverseGeocodingRequest(location: clLocation) else {
+                    await MainActor.run {
+                        completion("")
+                    }
+                    return
+                }
+                let mapItems = try await request.mapItems
+                await MainActor.run {
+                    if let firstItem = mapItems.first, let address = firstItem.address {
+                        completion(formatAddress(address))
+                    } else {
+                        completion("")
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    completion("")
                 }
             }
         }
@@ -600,13 +648,15 @@ struct MapLocationPickerView: View {
         withAnimation {
             region.span.latitudeDelta *= 0.5
             region.span.longitudeDelta *= 0.5
+            mapPosition = .region(region)
         }
     }
-    
+
     private func zoomOut() {
         withAnimation {
             region.span.latitudeDelta = min(region.span.latitudeDelta * 2, 180.0)
             region.span.longitudeDelta = min(region.span.longitudeDelta * 2, 180.0)
+            mapPosition = .region(region)
         }
     }
     
@@ -636,14 +686,15 @@ struct MapLocationPickerView: View {
                 if let response = response {
                     self.searchResults = response.mapItems
                     self.showingSearchResults = !response.mapItems.isEmpty
-                    
+
                     // Move map to first result if available
                     if let firstResult = response.mapItems.first {
-                        let coordinate = firstResult.placemark.coordinate
+                        let coordinate = firstResult.location.coordinate
                         self.region = MKCoordinateRegion(
                             center: coordinate,
                             span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
                         )
+                        self.mapPosition = .region(self.region)
                     }
                 } else {
                     self.searchResults = []
@@ -654,7 +705,7 @@ struct MapLocationPickerView: View {
     }
     
     private func selectSearchResult(_ item: MKMapItem) {
-        let coordinate = item.placemark.coordinate
+        let coordinate = item.location.coordinate
         hasUserSelectedLocation = true
         mapSelection = item
         droppedPinCoordinate = coordinate
@@ -663,15 +714,16 @@ struct MapLocationPickerView: View {
             center: coordinate,
             span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
         )
+        mapPosition = .region(region)
         showingSearchResults = false
         searchText = item.name ?? ""
-        
+
         // Update place details from search result
         selectedPlaceName = item.name ?? "Selected Location"
-        if let address = item.placemark.title {
-            selectedPlaceAddress = address
+        if let address = item.address {
+            selectedPlaceAddress = formatAddress(address)
         } else {
-            // Fallback to reverse geocoding if title is not available
+            // Fallback to reverse geocoding if address is not available
             geocodeLocation(coordinate: coordinate)
         }
     }
@@ -679,14 +731,14 @@ struct MapLocationPickerView: View {
     private func selectCurrentLocation() {
         let location: CLLocationCoordinate2D
         let searchString: String? = searchText.isEmpty ? nil : searchText
-        
+
         // Prioritize user-selected locations over current location
         if let mapItem = mapSelection {
             // User selected a search result
-            location = mapItem.placemark.coordinate
+            location = mapItem.location.coordinate
             selectedPlaceName = mapItem.name ?? "Selected Location"
-            if let address = mapItem.placemark.title {
-                selectedPlaceAddress = address
+            if let address = mapItem.address {
+                selectedPlaceAddress = formatAddress(address)
             } else {
                 selectedPlaceAddress = ""
             }
@@ -706,28 +758,14 @@ struct MapLocationPickerView: View {
         } else {
             // Fallback to center if nothing is selected
             location = region.center
-            let geocoder = CLGeocoder()
-            let clLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-            
-            geocoder.reverseGeocodeLocation(clLocation) { placemarks, error in
-                DispatchQueue.main.async {
-                    var addressString = ""
-                    if let placemark = placemarks?.first {
-                        let components = [
-                            placemark.subThoroughfare,
-                            placemark.thoroughfare,
-                            placemark.locality,
-                            placemark.administrativeArea,
-                            placemark.postalCode,
-                            placemark.country
-                        ].compactMap { $0 }
-                        addressString = components.joined(separator: ", ")
-                    }
-                    
-                    self.onLocationSelected(location, addressString, searchString)
-                }
+            reverseGeocode(coordinate: location) { addressString in
+                self.onLocationSelected(location, addressString, searchString)
             }
         }
+    }
+
+    private func formatAddress(_ address: MKAddress) -> String {
+        return address.fullAddress
     }
 }
 
@@ -736,9 +774,9 @@ struct MapPin: Identifiable {
     let coordinate: CLLocationCoordinate2D
 }
 
-extension MKMapItem: Identifiable {
+extension MKMapItem: @retroactive Identifiable {
     public var id: String {
-        return "\(placemark.coordinate.latitude)-\(placemark.coordinate.longitude)"
+        return "\(location.coordinate.latitude)-\(location.coordinate.longitude)"
     }
 }
 
