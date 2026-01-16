@@ -211,7 +211,8 @@ struct AddEditPointOfInterestView: View {
                             name = searchString
                         }
                         showingMap = false
-                    }
+                    },
+                    initialLocation: (latitude != 0.0 && longitude != 0.0) ? CLLocationCoordinate2D(latitude: latitude, longitude: longitude) : nil
                 )
             }
         }
@@ -251,8 +252,16 @@ struct MapLocationPickerView: View {
     @Binding var region: MKCoordinateRegion
     @Binding var selectedLocation: CLLocationCoordinate2D?
     var onLocationSelected: (CLLocationCoordinate2D, String, String?) -> Void
+    var initialLocation: CLLocationCoordinate2D?
     
     @StateObject private var locationManager = LocationManager.shared
+    
+    init(region: Binding<MKCoordinateRegion>, selectedLocation: Binding<CLLocationCoordinate2D?>, onLocationSelected: @escaping (CLLocationCoordinate2D, String, String?) -> Void, initialLocation: CLLocationCoordinate2D? = nil) {
+        self._region = region
+        self._selectedLocation = selectedLocation
+        self.onLocationSelected = onLocationSelected
+        self.initialLocation = initialLocation
+    }
     
     @State private var searchText: String = ""
     @State private var searchResults: [MKMapItem] = []
@@ -265,6 +274,7 @@ struct MapLocationPickerView: View {
     @State private var isFetchingLocation = false
     @State private var isGeocoding = false
     @State private var searchTask: Task<Void, Never>?
+    @State private var hasUserSelectedLocation = false
     
     var body: some View {
         NavigationView {
@@ -446,7 +456,16 @@ struct MapLocationPickerView: View {
                 }
             }
             .onAppear {
-                loadCurrentLocation()
+                // If an initial location is provided (e.g., when editing), use it
+                if let initialLoc = initialLocation {
+                    droppedPinCoordinate = initialLoc
+                    selectedLocation = initialLoc
+                    hasUserSelectedLocation = true
+                    geocodeLocation(coordinate: initialLoc)
+                } else {
+                    // Only load current location if no initial location is provided
+                    loadCurrentLocation()
+                }
             }
         }
     }
@@ -480,6 +499,7 @@ struct MapLocationPickerView: View {
             longitude: region.center.longitude + lonOffset
         )
         
+        hasUserSelectedLocation = true
         droppedPinCoordinate = coordinate
         selectedLocation = coordinate
         mapSelection = nil
@@ -519,10 +539,13 @@ struct MapLocationPickerView: View {
                             center: coordinate,
                             span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
                         )
-                        droppedPinCoordinate = coordinate
-                        selectedLocation = coordinate
+                        // Only set initial location if user hasn't selected one yet
+                        if !hasUserSelectedLocation {
+                            droppedPinCoordinate = coordinate
+                            selectedLocation = coordinate
+                            geocodeLocation(coordinate: coordinate)
+                        }
                         isFetchingLocation = false
-                        geocodeLocation(coordinate: coordinate)
                     }
                 } else {
                     await MainActor.run {
@@ -632,6 +655,7 @@ struct MapLocationPickerView: View {
     
     private func selectSearchResult(_ item: MKMapItem) {
         let coordinate = item.placemark.coordinate
+        hasUserSelectedLocation = true
         mapSelection = item
         droppedPinCoordinate = coordinate
         selectedLocation = coordinate
@@ -656,7 +680,9 @@ struct MapLocationPickerView: View {
         let location: CLLocationCoordinate2D
         let searchString: String? = searchText.isEmpty ? nil : searchText
         
+        // Prioritize user-selected locations over current location
         if let mapItem = mapSelection {
+            // User selected a search result
             location = mapItem.placemark.coordinate
             selectedPlaceName = mapItem.name ?? "Selected Location"
             if let address = mapItem.placemark.title {
@@ -666,9 +692,15 @@ struct MapLocationPickerView: View {
             }
             onLocationSelected(location, selectedPlaceAddress, searchString)
         } else if let droppedPin = droppedPinCoordinate {
+            // User tapped on the map
             location = droppedPin
             onLocationSelected(location, selectedPlaceAddress, searchString)
+        } else if hasUserSelectedLocation, let selectedLoc = selectedLocation {
+            // User has explicitly selected a location
+            location = selectedLoc
+            onLocationSelected(location, selectedPlaceAddress, searchString)
         } else if let selectedLoc = selectedLocation {
+            // Use selected location (from initial load or previous selection)
             location = selectedLoc
             onLocationSelected(location, selectedPlaceAddress, searchString)
         } else {
