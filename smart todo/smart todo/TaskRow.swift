@@ -22,22 +22,10 @@ struct TaskRow: View {
             .buttonStyle(PlainButtonStyle())
             
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Text(task.title ?? "Untitled Task")
-                        .strikethrough(task.isCompleted)
-                        .foregroundColor(task.isCompleted ? .gray : .primary)
-                        .font(.body)
-                    
-                    if let group = task.group, let groupName = group.name {
-                        Text(groupName)
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(4)
-                    }
-                }
+                Text(task.title ?? "Untitled Task")
+                    .strikethrough(task.isCompleted)
+                    .foregroundColor(task.isCompleted ? .gray : .primary)
+                    .font(.body)
                 
                 // Display date information
                 if let dueDate = task.dueDate {

@@ -10,7 +10,6 @@ import CoreData
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
-    @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var notificationManager: NotificationManager
     
     @FetchRequest(
@@ -19,26 +18,11 @@ struct ContentView: View {
             NSSortDescriptor(keyPath: \TodoTask.createdAt, ascending: false)
         ],
         animation: .default)
-    private var allTasks: FetchedResults<TodoTask>
-    
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Group.name, ascending: true)],
-        animation: .default)
-    private var groups: FetchedResults<Group>
+    private var tasks: FetchedResults<TodoTask>
     
     @State private var showingAddTask = false
     @State private var selectedTask: TodoTask?
-    @State private var showingGroupManager = false
     @State private var showingPointOfInterestManager = false
-    @State private var selectedFilterGroup: Group?
-    
-    private var tasks: [TodoTask] {
-        if let selectedFilterGroup = selectedFilterGroup {
-            return allTasks.filter { $0.group == selectedFilterGroup }
-        } else {
-            return Array(allTasks)
-        }
-    }
     
     private var hasCompletedTasks: Bool {
         tasks.contains { $0.isCompleted }
@@ -52,10 +36,10 @@ struct ContentView: View {
                         Image(systemName: "checklist")
                             .font(.system(size: 60))
                             .foregroundColor(.gray)
-                        Text(selectedFilterGroup == nil ? "No tasks yet" : "No tasks in this group")
+                        Text("No tasks yet")
                             .font(.title2)
                             .foregroundColor(.gray)
-                        Text(selectedFilterGroup == nil ? "Tap the + button to add your first task" : "Add tasks to this group or change the filter")
+                        Text("Tap the + button to add your first task")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -78,44 +62,6 @@ struct ContentView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Menu {
-                            Button(action: {
-                                selectedFilterGroup = nil
-                            }) {
-                                HStack {
-                                    Text("All Tasks")
-                                    if selectedFilterGroup == nil {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                            Divider()
-                            ForEach(groups) { group in
-                                Button(action: {
-                                    selectedFilterGroup = group
-                                }) {
-                                    HStack {
-                                        Text(group.name ?? "Unnamed Group")
-                                        if selectedFilterGroup == group {
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
-                                }
-                            }
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "line.3.horizontal.decrease.circle")
-                                if let selectedGroup = selectedFilterGroup {
-                                    Text(selectedGroup.name ?? "Filtered")
-                                        .font(.subheadline)
-                                } else {
-                                    Text("All")
-                                        .font(.subheadline)
-                                }
-                            }
-                        }
-                }
                 ToolbarItem(placement: .navigationBarLeading) {
                     HStack {
                         if hasCompletedTasks {
@@ -134,17 +80,6 @@ struct ContentView: View {
                             Image(systemName: "mappin.circle")
                         }
                         Button(action: {
-                            showingGroupManager = true
-                        }) {
-                            Image(systemName: "folder")
-                        }
-                        Button(action: {
-                            themeManager.toggleTheme()
-                        }) {
-                            Image(systemName: themeManager.isAdaptive ? "circle.lefthalf.filled" : (themeManager.isDarkMode ? "sun.max.fill" : "moon.fill"))
-                                .foregroundColor(.primary)
-                        }
-                        Button(action: {
                             selectedTask = nil
                             showingAddTask = true
                         }) {
@@ -155,9 +90,6 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingAddTask) {
                 AddEditTaskView(task: selectedTask)
-            }
-            .sheet(isPresented: $showingGroupManager) {
-                GroupManagerView()
             }
             .sheet(isPresented: $showingPointOfInterestManager) {
                 PointOfInterestManagerView()
@@ -226,6 +158,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-        .environmentObject(ThemeManager())
         .environmentObject(NotificationManager.shared)
 }

@@ -16,18 +16,12 @@ struct AddEditTaskView: View {
     var task: TodoTask?
 
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Group.name, ascending: true)],
-        animation: .default)
-    private var groups: FetchedResults<Group>
-
-    @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \PointOfInterest.name, ascending: true)],
         animation: .default)
     private var pointsOfInterest: FetchedResults<PointOfInterest>
 
     @State private var title: String = ""
     @State private var dueDate: Date = Date().addingTimeInterval(6 * 60)
-    @State private var selectedGroup: Group?
     @State private var showingPastDateError = false
     @State private var showingDateTooSoonError = false
     @State private var showingNotificationPastError = false
@@ -73,15 +67,6 @@ struct AddEditTaskView: View {
             Form {
                 Section(header: Text("Task Details")) {
                     TextField("Task Title", text: $title)
-                }
-                
-                Section(header: Text("Group")) {
-                    Picker("Group", selection: $selectedGroup) {
-                        Text("None").tag(nil as Group?)
-                        ForEach(groups) { group in
-                            Text(group.name ?? "Unnamed Group").tag(group as Group?)
-                        }
-                    }
                 }
                 
                 Section(header: Text("Due Date"), footer: dueDateFooter) {
@@ -207,7 +192,6 @@ struct AddEditTaskView: View {
                     let fiveMinutesFromNow = now.addingTimeInterval(5 * 60)
                     // Add 1 second to ensure it's strictly more than 5 minutes
                     dueDate = taskDueDate <= fiveMinutesFromNow ? fiveMinutesFromNow.addingTimeInterval(1) : taskDueDate
-                    selectedGroup = task.group
                     notificationMinutes = Int(task.notificationMinutes)
                     // Load location notification fields
                     notificationType = task.notificationType ?? "time"
@@ -278,7 +262,7 @@ struct AddEditTaskView: View {
             
             taskToSave.title = title
             taskToSave.dateType = "dueDate"
-            taskToSave.group = selectedGroup
+            taskToSave.group = nil
             taskToSave.dueDate = dueDate
             taskToSave.startDate = nil
             taskToSave.endDate = nil
