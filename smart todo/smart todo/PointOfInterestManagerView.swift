@@ -284,22 +284,28 @@ struct MapLocationPickerView: View {
                 ZStack {
                     Map(position: $mapPosition) {
                         ForEach(annotationItems) { pin in
-                            Marker("", coordinate: pin.coordinate)
-                                .tint(.red)
+                            Annotation("", coordinate: pin.coordinate) {
+                                VStack(spacing: 0) {
+                                    Image(systemName: "mappin.circle.fill")
+                                        .font(.system(size: 44))
+                                        .foregroundStyle(.white, .red)
+                                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                    Image(systemName: "arrowtriangle.down.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.red)
+                                        .offset(y: -5)
+                                }
+                                .offset(y: -22)
+                            }
                         }
                     }
+                    .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .including([.restaurant, .cafe, .store, .gasStation, .hospital, .pharmacy])))
                     .onMapCameraChange { context in
                         region = context.region
                     }
-                    .overlay(
-                        VStack {
-                            Image(systemName: "mappin.circle.fill")
-                                .font(.system(size: 40))
-                                .foregroundColor(.red)
-                                .offset(y: -20)
-                            Spacer()
-                        }
-                    )
+                    .mapControls {
+                        MapCompass()
+                    }
                     .overlay(
                         // Transparent overlay to capture taps
                         Color.clear
@@ -311,19 +317,21 @@ struct MapLocationPickerView: View {
                                     }
                             )
                     )
-                    
+
                     VStack(spacing: 0) {
-                        HStack {
-                            TextField("Search for location", text: $searchText)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        // Search bar with glass effect
+                        HStack(spacing: 12) {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 16, weight: .medium))
+
+                            TextField("Search for a place", text: $searchText)
+                                .font(.system(size: 16))
                                 .onChange(of: searchText) { oldValue, newValue in
-                                    // Cancel previous search task
                                     searchTask?.cancel()
-                                    
-                                    // Perform search as user types (with debounce)
                                     if !newValue.isEmpty {
                                         searchTask = Task {
-                                            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+                                            try? await Task.sleep(nanoseconds: 300_000_000)
                                             if !Task.isCancelled {
                                                 await MainActor.run {
                                                     searchLocation()
@@ -338,15 +346,26 @@ struct MapLocationPickerView: View {
                                 .onSubmit {
                                     searchLocation()
                                 }
-                            Button(action: searchLocation) {
-                                Image(systemName: "magnifyingglass")
+
+                            if !searchText.isEmpty {
+                                Button(action: {
+                                    searchText = ""
+                                    searchResults = []
+                                    showingSearchResults = false
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.secondary)
+                                        .font(.system(size: 16))
+                                }
                             }
                         }
-                        .padding()
-                        .background(Color(.systemBackground))
-                        .cornerRadius(10)
-                        .shadow(radius: 5)
-                        .padding()
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(12)
+                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
                         
                         // Dropdown suggestions
                         if showingSearchResults || !searchText.isEmpty {
@@ -355,28 +374,36 @@ struct MapLocationPickerView: View {
                                 Button(action: {
                                     searchNearby()
                                 }) {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "location.circle.fill")
-                                            .font(.title2)
-                                            .foregroundColor(.blue)
+                                    HStack(spacing: 14) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.blue.opacity(0.15))
+                                                .frame(width: 36, height: 36)
+                                            Image(systemName: "location.fill")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(.blue)
+                                        }
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text("Search Nearby")
-                                                .font(.headline)
+                                                .font(.system(size: 15, weight: .semibold))
                                                 .foregroundColor(.primary)
-                                            Text("Find places around your current location")
-                                                .font(.caption)
+                                            Text("Find places around you")
+                                                .font(.system(size: 12))
                                                 .foregroundColor(.secondary)
                                         }
                                         Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(.gray.opacity(0.5))
                                     }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 10)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 12)
                                 }
                                 .buttonStyle(PlainButtonStyle())
 
                                 if !searchResults.isEmpty {
                                     Divider()
-                                        .padding(.leading, 12)
+                                        .padding(.leading, 64)
 
                                     let sortedResults = sortResultsByDistance(searchResults)
                                     let topResults = Array(sortedResults.prefix(5))
@@ -384,113 +411,167 @@ struct MapLocationPickerView: View {
                                         Button(action: {
                                             selectSearchResult(item)
                                         }) {
-                                            HStack {
-                                                VStack(alignment: .leading, spacing: 4) {
+                                            HStack(spacing: 14) {
+                                                ZStack {
+                                                    Circle()
+                                                        .fill(Color.gray.opacity(0.12))
+                                                        .frame(width: 36, height: 36)
+                                                    Image(systemName: "mappin")
+                                                        .font(.system(size: 14, weight: .medium))
+                                                        .foregroundColor(.secondary)
+                                                }
+                                                VStack(alignment: .leading, spacing: 2) {
                                                     Text(item.name ?? "Unknown")
-                                                        .font(.headline)
+                                                        .font(.system(size: 15, weight: .medium))
                                                         .foregroundColor(.primary)
+                                                        .lineLimit(1)
                                                     if let address = item.address {
                                                         Text(formatAddress(address))
-                                                            .font(.caption)
+                                                            .font(.system(size: 12))
                                                             .foregroundColor(.secondary)
+                                                            .lineLimit(1)
                                                     }
                                                 }
                                                 Spacer()
                                                 Text(distanceText(for: item))
-                                                    .font(.caption)
+                                                    .font(.system(size: 11, weight: .medium))
                                                     .foregroundColor(.secondary)
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 4)
+                                                    .background(Color.gray.opacity(0.1))
+                                                    .cornerRadius(6)
                                             }
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                            .padding(.horizontal, 12)
+                                            .padding(.horizontal, 14)
                                             .padding(.vertical, 10)
                                         }
                                         .buttonStyle(PlainButtonStyle())
 
                                         if item.id != topResults.last?.id {
                                             Divider()
-                                                .padding(.leading, 12)
+                                                .padding(.leading, 64)
                                         }
                                     }
                                 }
                             }
-                            .background(Color(.systemBackground))
-                            .cornerRadius(10)
-                            .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
-                            .padding(.horizontal)
-                            .padding(.top, -10)
-                            .zIndex(1)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(14)
+                            .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 6)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                         
                         Spacer()
-                        
-                        // Place details above Select button
-                        if !selectedPlaceName.isEmpty || !selectedPlaceAddress.isEmpty {
-                            VStack(alignment: .leading, spacing: 4) {
-                                if !selectedPlaceName.isEmpty {
-                                    Text(selectedPlaceName)
-                                        .font(.headline)
-                                        .foregroundColor(.primary)
-                                }
-                                if !selectedPlaceAddress.isEmpty {
-                                    Text(selectedPlaceAddress)
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
-                            .background(Color(.systemBackground))
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
-                            .padding(.horizontal)
-                        }
-                        
-                        // Zoom controls
+
+                        // Zoom controls and current location button
                         HStack {
+                            // Current location button
+                            Button(action: loadCurrentLocation) {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.blue)
+                                    .frame(width: 44, height: 44)
+                                    .background(.ultraThinMaterial)
+                                    .cornerRadius(10)
+                                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            }
+                            .padding(.leading, 16)
+
                             Spacer()
-                            VStack(spacing: 8) {
+
+                            VStack(spacing: 1) {
                                 Button(action: zoomIn) {
                                     Image(systemName: "plus")
-                                        .font(.headline)
+                                        .font(.system(size: 18, weight: .medium))
                                         .foregroundColor(.primary)
                                         .frame(width: 44, height: 44)
-                                        .background(Color(.systemBackground))
-                                        .cornerRadius(8)
-                                        .shadow(radius: 2)
                                 }
-                                
+
+                                Divider()
+                                    .frame(width: 30)
+
                                 Button(action: zoomOut) {
                                     Image(systemName: "minus")
-                                        .font(.headline)
+                                        .font(.system(size: 18, weight: .medium))
                                         .foregroundColor(.primary)
                                         .frame(width: 44, height: 44)
-                                        .background(Color(.systemBackground))
-                                        .cornerRadius(8)
-                                        .shadow(radius: 2)
                                 }
                             }
-                            .padding(.trailing)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(10)
+                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            .padding(.trailing, 16)
                         }
-                        .padding(.top)
-                        
+
+                        // Place details card
+                        if !selectedPlaceName.isEmpty || !selectedPlaceAddress.isEmpty {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.red.opacity(0.15))
+                                        .frame(width: 44, height: 44)
+                                    Image(systemName: "mappin.circle.fill")
+                                        .font(.system(size: 22))
+                                        .foregroundColor(.red)
+                                }
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    if !selectedPlaceName.isEmpty {
+                                        Text(selectedPlaceName)
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                    }
+                                    if !selectedPlaceAddress.isEmpty {
+                                        Text(selectedPlaceAddress)
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(2)
+                                    }
+                                }
+
+                                Spacer()
+                            }
+                            .padding(14)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(14)
+                            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                        }
+
+                        // Select button
                         Button(action: {
                             selectCurrentLocation()
                         }) {
-                            Text("Select")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(isLocationSelected ? Color.blue : Color.gray)
-                                .cornerRadius(10)
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 18, weight: .semibold))
+                                Text("Select This Location")
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                LinearGradient(
+                                    colors: isLocationSelected ? [Color.blue, Color.blue.opacity(0.8)] : [Color.gray, Color.gray],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(14)
+                            .shadow(color: isLocationSelected ? Color.blue.opacity(0.3) : Color.clear, radius: 8, x: 0, y: 4)
                         }
                         .disabled(!isLocationSelected)
-                        .padding()
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
                     }
                 }
             }
             .navigationTitle("Select Location")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
