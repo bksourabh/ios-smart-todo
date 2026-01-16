@@ -12,7 +12,7 @@ final class ThemeManager: ObservableObject {
     @Published private(set) var themeValue: String
     
     init() {
-        self.themeValue = UserDefaults.standard.string(forKey: "appTheme") ?? "light"
+        self.themeValue = UserDefaults.standard.string(forKey: "appTheme") ?? "adaptive"
     }
     
     var colorScheme: ColorScheme? {
@@ -21,13 +21,19 @@ final class ThemeManager: ObservableObject {
             return .light
         case "dark":
             return .dark
+        case "adaptive":
+            return nil // nil means use system preference
         default:
-            return .light
+            return nil
         }
     }
     
     var isDarkMode: Bool {
         themeValue == "dark"
+    }
+    
+    var isAdaptive: Bool {
+        themeValue == "adaptive"
     }
     
     func setTheme(_ theme: String) {
@@ -36,7 +42,17 @@ final class ThemeManager: ObservableObject {
     }
     
     func toggleTheme() {
-        themeValue = themeValue == "light" ? "dark" : "light"
+        // Cycle through: adaptive -> light -> dark -> adaptive
+        switch themeValue {
+        case "adaptive":
+            themeValue = "light"
+        case "light":
+            themeValue = "dark"
+        case "dark":
+            themeValue = "adaptive"
+        default:
+            themeValue = "adaptive"
+        }
         UserDefaults.standard.set(themeValue, forKey: "appTheme")
     }
 }

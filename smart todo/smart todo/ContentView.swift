@@ -141,7 +141,7 @@ struct ContentView: View {
                         Button(action: {
                             themeManager.toggleTheme()
                         }) {
-                            Image(systemName: themeManager.isDarkMode ? "sun.max.fill" : "moon.fill")
+                            Image(systemName: themeManager.isAdaptive ? "circle.lefthalf.filled" : (themeManager.isDarkMode ? "sun.max.fill" : "moon.fill"))
                                 .foregroundColor(.primary)
                         }
                         Button(action: {
