@@ -276,6 +276,7 @@ struct MapLocationPickerView: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var hasUserSelectedLocation = false
     @State private var mapPosition: MapCameraPosition = .automatic
+    @State private var isNearbySearch = false
     
     var body: some View {
         NavigationView {
@@ -348,32 +349,67 @@ struct MapLocationPickerView: View {
                         .padding()
                         
                         // Dropdown suggestions
-                        if showingSearchResults && !searchResults.isEmpty {
-                            let topResults = Array(searchResults.prefix(5))
+                        if showingSearchResults || !searchText.isEmpty {
                             VStack(spacing: 0) {
-                                ForEach(topResults) { item in
-                                    Button(action: {
-                                        selectSearchResult(item)
-                                    }) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(item.name ?? "Unknown")
+                                // Search Nearby option
+                                Button(action: {
+                                    searchNearby()
+                                }) {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "location.circle.fill")
+                                            .font(.title2)
+                                            .foregroundColor(.blue)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Search Nearby")
                                                 .font(.headline)
                                                 .foregroundColor(.primary)
-                                            if let address = item.address {
-                                                Text(formatAddress(address))
+                                            Text("Find places around your current location")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+
+                                if !searchResults.isEmpty {
+                                    Divider()
+                                        .padding(.leading, 12)
+
+                                    let sortedResults = sortResultsByDistance(searchResults)
+                                    let topResults = Array(sortedResults.prefix(5))
+                                    ForEach(topResults) { item in
+                                        Button(action: {
+                                            selectSearchResult(item)
+                                        }) {
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text(item.name ?? "Unknown")
+                                                        .font(.headline)
+                                                        .foregroundColor(.primary)
+                                                    if let address = item.address {
+                                                        Text(formatAddress(address))
+                                                            .font(.caption)
+                                                            .foregroundColor(.secondary)
+                                                    }
+                                                }
+                                                Spacer()
+                                                Text(distanceText(for: item))
                                                     .font(.caption)
                                                     .foregroundColor(.secondary)
                                             }
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 10)
                                         }
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 10)
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
-                                    
-                                    if item.id != topResults.last?.id {
-                                        Divider()
-                                            .padding(.leading, 12)
+                                        .buttonStyle(PlainButtonStyle())
+
+                                        if item.id != topResults.last?.id {
+                                            Divider()
+                                                .padding(.leading, 12)
+                                        }
                                     }
                                 }
                             }
@@ -686,6 +722,7 @@ struct MapLocationPickerView: View {
                 if let response = response {
                     self.searchResults = response.mapItems
                     self.showingSearchResults = !response.mapItems.isEmpty
+                    self.isNearbySearch = false
 
                     // Move map to first result if available
                     if let firstResult = response.mapItems.first {
@@ -703,7 +740,78 @@ struct MapLocationPickerView: View {
             }
         }
     }
-    
+
+    private func searchNearby() {
+        isSearching = true
+        isNearbySearch = true
+        showingSearchResults = false
+        searchResults = []
+
+        Task {
+            // Search for various nearby place types
+            let searchQueries = ["restaurant", "cafe", "grocery", "pharmacy", "bank", "gas station"]
+            var allResults: [MKMapItem] = []
+
+            for query in searchQueries {
+                let request = MKLocalSearch.Request()
+                request.naturalLanguageQuery = query
+                request.region = MKCoordinateRegion(
+                    center: region.center,
+                    span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                )
+
+                let search = MKLocalSearch(request: request)
+                do {
+                    let response = try await search.start()
+                    allResults.append(contentsOf: response.mapItems)
+                } catch {
+                    print("Search error for \(query): \(error.localizedDescription)")
+                }
+            }
+
+            await MainActor.run {
+                self.isSearching = false
+                // Remove duplicates based on location
+                var uniqueResults: [MKMapItem] = []
+                var seenLocations: Set<String> = []
+                for item in allResults {
+                    let key = "\(item.location.coordinate.latitude)-\(item.location.coordinate.longitude)"
+                    if !seenLocations.contains(key) {
+                        seenLocations.insert(key)
+                        uniqueResults.append(item)
+                    }
+                }
+                self.searchResults = uniqueResults
+                self.showingSearchResults = !uniqueResults.isEmpty
+                self.searchText = ""
+            }
+        }
+    }
+
+    private func sortResultsByDistance(_ results: [MKMapItem]) -> [MKMapItem] {
+        let currentCenter = region.center
+        return results.sorted { item1, item2 in
+            let distance1 = distanceFromCenter(item1.location.coordinate, to: currentCenter)
+            let distance2 = distanceFromCenter(item2.location.coordinate, to: currentCenter)
+            return distance1 < distance2
+        }
+    }
+
+    private func distanceFromCenter(_ coordinate: CLLocationCoordinate2D, to center: CLLocationCoordinate2D) -> CLLocationDistance {
+        let location1 = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let location2 = CLLocation(latitude: center.latitude, longitude: center.longitude)
+        return location1.distance(from: location2)
+    }
+
+    private func distanceText(for item: MKMapItem) -> String {
+        let distance = distanceFromCenter(item.location.coordinate, to: region.center)
+        if distance < 1000 {
+            return String(format: "%.0f m", distance)
+        } else {
+            return String(format: "%.1f km", distance / 1000)
+        }
+    }
+
     private func selectSearchResult(_ item: MKMapItem) {
         let coordinate = item.location.coordinate
         hasUserSelectedLocation = true
