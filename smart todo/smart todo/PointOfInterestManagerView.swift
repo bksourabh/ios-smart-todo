@@ -245,29 +245,48 @@ struct MapLocationPickerView: View {
     @Binding var selectedLocation: CLLocationCoordinate2D?
     var onLocationSelected: (CLLocationCoordinate2D, String) -> Void
     
+    @StateObject private var locationManager = LocationManager.shared
+    
     @State private var searchText: String = ""
     @State private var searchResults: [MKMapItem] = []
     @State private var isSearching = false
     @State private var mapSelection: MKMapItem?
     @State private var showingSearchResults = false
+    @State private var droppedPinCoordinate: CLLocationCoordinate2D?
+    @State private var selectedPlaceName: String = ""
+    @State private var selectedPlaceAddress: String = ""
+    @State private var isFetchingLocation = false
+    @State private var isGeocoding = false
     
     var body: some View {
         NavigationView {
-            ZStack {
-                Map(coordinateRegion: $region, annotationItems: [MapPin(coordinate: region.center)]) { pin in
-                    MapMarker(coordinate: pin.coordinate, tint: .red)
-                }
-                .overlay(
-                    VStack {
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(.red)
-                            .offset(y: -20)
-                        Spacer()
+            GeometryReader { geometry in
+                ZStack {
+                    Map(coordinateRegion: $region, annotationItems: annotationItems) { pin in
+                        MapMarker(coordinate: pin.coordinate, tint: .red)
                     }
-                )
-                
-                VStack {
+                    .overlay(
+                        VStack {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(.red)
+                                .offset(y: -20)
+                            Spacer()
+                        }
+                    )
+                    .overlay(
+                        // Transparent overlay to capture taps
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onEnded { value in
+                                        handleMapTap(at: value.location, in: geometry.size)
+                                    }
+                            )
+                    )
+                    
+                    VStack {
                     HStack {
                         TextField("Search for location", text: $searchText)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -309,6 +328,56 @@ struct MapLocationPickerView: View {
                     
                     Spacer()
                     
+                    // Place details above Select button
+                    if !selectedPlaceName.isEmpty || !selectedPlaceAddress.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            if !selectedPlaceName.isEmpty {
+                                Text(selectedPlaceName)
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                            }
+                            if !selectedPlaceAddress.isEmpty {
+                                Text(selectedPlaceAddress)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(Color(.systemBackground))
+                        .cornerRadius(10)
+                        .shadow(radius: 5)
+                        .padding(.horizontal)
+                    }
+                    
+                    // Zoom controls
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 8) {
+                            Button(action: zoomIn) {
+                                Image(systemName: "plus")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color(.systemBackground))
+                                    .cornerRadius(8)
+                                    .shadow(radius: 2)
+                            }
+                            
+                            Button(action: zoomOut) {
+                                Image(systemName: "minus")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color(.systemBackground))
+                                    .cornerRadius(8)
+                                    .shadow(radius: 2)
+                            }
+                        }
+                        .padding(.trailing)
+                    }
+                    .padding(.top)
+                    
                     Button(action: {
                         selectCurrentLocation()
                     }) {
@@ -317,10 +386,12 @@ struct MapLocationPickerView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.blue)
+                            .background(isLocationSelected ? Color.blue : Color.gray)
                             .cornerRadius(10)
                     }
+                    .disabled(!isLocationSelected)
                     .padding()
+                }
                 }
             }
             .navigationTitle("Select Location")
@@ -332,6 +403,145 @@ struct MapLocationPickerView: View {
                     }
                 }
             }
+            .onAppear {
+                loadCurrentLocation()
+            }
+        }
+    }
+    
+    private var annotationItems: [MapPin] {
+        if let coordinate = droppedPinCoordinate ?? selectedLocation {
+            return [MapPin(coordinate: coordinate)]
+        }
+        return []
+    }
+    
+    private var isLocationSelected: Bool {
+        droppedPinCoordinate != nil || selectedLocation != nil || mapSelection != nil
+    }
+    
+    private func handleMapTap(at location: CGPoint, in size: CGSize) {
+        // Convert tap location to coordinate
+        let mapWidth = size.width
+        let mapHeight = size.height
+        
+        let latDelta = region.span.latitudeDelta
+        let lonDelta = region.span.longitudeDelta
+        
+        // Calculate the coordinate offset from center
+        // Note: Y is inverted in screen coordinates (top is 0, bottom is height)
+        let latOffset = (location.y - mapHeight / 2) / mapHeight * latDelta
+        let lonOffset = (location.x - mapWidth / 2) / mapWidth * lonDelta
+        
+        let coordinate = CLLocationCoordinate2D(
+            latitude: region.center.latitude - latOffset,
+            longitude: region.center.longitude + lonOffset
+        )
+        
+        droppedPinCoordinate = coordinate
+        selectedLocation = coordinate
+        mapSelection = nil
+        selectedPlaceName = ""
+        selectedPlaceAddress = ""
+        geocodeLocation(coordinate: coordinate)
+    }
+    
+    private func loadCurrentLocation() {
+        Task {
+            await MainActor.run {
+                isFetchingLocation = true
+            }
+            
+            locationManager.checkAuthorizationStatus()
+            
+            if locationManager.authorizationStatus == .notDetermined {
+                let granted = await locationManager.requestLocationPermission()
+                if !granted {
+                    await MainActor.run {
+                        isFetchingLocation = false
+                    }
+                    return
+                }
+            } else if locationManager.authorizationStatus != .authorizedWhenInUse && locationManager.authorizationStatus != .authorizedAlways {
+                await MainActor.run {
+                    isFetchingLocation = false
+                }
+                return
+            }
+            
+            do {
+                if let location = try await locationManager.getCurrentLocation() {
+                    let coordinate = location.coordinate
+                    await MainActor.run {
+                        region = MKCoordinateRegion(
+                            center: coordinate,
+                            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+                        )
+                        droppedPinCoordinate = coordinate
+                        selectedLocation = coordinate
+                        isFetchingLocation = false
+                        geocodeLocation(coordinate: coordinate)
+                    }
+                } else {
+                    await MainActor.run {
+                        isFetchingLocation = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isFetchingLocation = false
+                }
+            }
+        }
+    }
+    
+    private func geocodeLocation(coordinate: CLLocationCoordinate2D) {
+        isGeocoding = true
+        let geocoder = CLGeocoder()
+        let clLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        
+        geocoder.reverseGeocodeLocation(clLocation) { placemarks, error in
+            DispatchQueue.main.async {
+                self.isGeocoding = false
+                if let placemark = placemarks?.first {
+                    // Get place name
+                    if let name = placemark.name {
+                        self.selectedPlaceName = name
+                    } else if let thoroughfare = placemark.thoroughfare {
+                        self.selectedPlaceName = thoroughfare
+                    } else {
+                        self.selectedPlaceName = "Selected Location"
+                    }
+                    
+                    // Get full address
+                    let components = [
+                        placemark.subThoroughfare,
+                        placemark.thoroughfare,
+                        placemark.locality,
+                        placemark.administrativeArea,
+                        placemark.postalCode,
+                        placemark.country
+                    ].compactMap { $0 }
+                    self.selectedPlaceAddress = components.joined(separator: ", ")
+                } else {
+                    self.selectedPlaceName = "Selected Location"
+                    self.selectedPlaceAddress = String(format: "Lat: %.6f, Long: %.6f", coordinate.latitude, coordinate.longitude)
+                }
+            }
+        }
+    }
+    
+    private func zoomIn() {
+        withAnimation {
+            region.span.latitudeDelta *= 0.5
+            region.span.longitudeDelta *= 0.5
+        }
+    }
+    
+    private func zoomOut() {
+        withAnimation {
+            region.span.latitudeDelta = min(region.span.latitudeDelta * 2, 180.0)
+            region.span.longitudeDelta = min(region.span.longitudeDelta * 2, 180.0)
         }
     }
     
@@ -377,36 +587,66 @@ struct MapLocationPickerView: View {
     private func selectSearchResult(_ item: MKMapItem) {
         let coordinate = item.placemark.coordinate
         mapSelection = item
+        droppedPinCoordinate = coordinate
+        selectedLocation = coordinate
         region = MKCoordinateRegion(
             center: coordinate,
             span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
         )
         showingSearchResults = false
         searchText = item.name ?? ""
+        
+        // Update place details from search result
+        selectedPlaceName = item.name ?? "Selected Location"
+        if let address = item.placemark.title {
+            selectedPlaceAddress = address
+        } else {
+            // Fallback to reverse geocoding if title is not available
+            geocodeLocation(coordinate: coordinate)
+        }
     }
     
     private func selectCurrentLocation() {
-        let location = mapSelection?.placemark.coordinate ?? region.center
+        let location: CLLocationCoordinate2D
         
-        let geocoder = CLGeocoder()
-        let clLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        
-        geocoder.reverseGeocodeLocation(clLocation) { placemarks, error in
-            DispatchQueue.main.async {
-                var addressString = ""
-                if let placemark = placemarks?.first {
-                    let components = [
-                        placemark.subThoroughfare,
-                        placemark.thoroughfare,
-                        placemark.locality,
-                        placemark.administrativeArea,
-                        placemark.postalCode,
-                        placemark.country
-                    ].compactMap { $0 }
-                    addressString = components.joined(separator: ", ")
+        if let mapItem = mapSelection {
+            location = mapItem.placemark.coordinate
+            selectedPlaceName = mapItem.name ?? "Selected Location"
+            if let address = mapItem.placemark.title {
+                selectedPlaceAddress = address
+            } else {
+                selectedPlaceAddress = ""
+            }
+            onLocationSelected(location, selectedPlaceAddress)
+        } else if let droppedPin = droppedPinCoordinate {
+            location = droppedPin
+            onLocationSelected(location, selectedPlaceAddress)
+        } else if let selectedLoc = selectedLocation {
+            location = selectedLoc
+            onLocationSelected(location, selectedPlaceAddress)
+        } else {
+            // Fallback to center if nothing is selected
+            location = region.center
+            let geocoder = CLGeocoder()
+            let clLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
+            
+            geocoder.reverseGeocodeLocation(clLocation) { placemarks, error in
+                DispatchQueue.main.async {
+                    var addressString = ""
+                    if let placemark = placemarks?.first {
+                        let components = [
+                            placemark.subThoroughfare,
+                            placemark.thoroughfare,
+                            placemark.locality,
+                            placemark.administrativeArea,
+                            placemark.postalCode,
+                            placemark.country
+                        ].compactMap { $0 }
+                        addressString = components.joined(separator: ", ")
+                    }
+                    
+                    self.onLocationSelected(location, addressString)
                 }
-                
-                onLocationSelected(location, addressString)
             }
         }
     }
