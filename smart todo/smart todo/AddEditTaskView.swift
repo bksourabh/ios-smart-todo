@@ -12,14 +12,19 @@ struct AddEditTaskView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var notificationManager: NotificationManager
-    
+
     var task: TodoTask?
-    
+
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Group.name, ascending: true)],
         animation: .default)
     private var groups: FetchedResults<Group>
-    
+
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \PointOfInterest.name, ascending: true)],
+        animation: .default)
+    private var pointsOfInterest: FetchedResults<PointOfInterest>
+
     @State private var title: String = ""
     @State private var dueDate: Date = Date().addingTimeInterval(6 * 60)
     @State private var selectedGroup: Group?
@@ -27,6 +32,12 @@ struct AddEditTaskView: View {
     @State private var showingDateTooSoonError = false
     @State private var showingNotificationPastError = false
     @State private var notificationMinutes: Int = 0
+
+    // Location-based notification state
+    @State private var notificationType: String = "time"
+    @State private var locationNotificationDistance: Int = 15
+    @State private var selectedPOI: PointOfInterest?
+    @State private var showingAddPOI = false
     
     private var isDueDateValid: Bool {
         let now = Date()
@@ -101,22 +112,72 @@ struct AddEditTaskView: View {
                 }
                 
                 Section(header: Text("Notification"), footer: notificationFooter) {
-                    Picker(selection: $notificationMinutes, label: Text(notificationMinutes == 0 ? "Notify me x minutes before" : "Notify me \(notificationMinutes) minute\(notificationMinutes == 1 ? "" : "s") before")) {
-                        Text("No notification").tag(0)
-                        ForEach(1...60, id: \.self) { minutes in
-                            Text("\(minutes) minute\(minutes == 1 ? "" : "s")").tag(minutes)
-                        }
+                    Picker("Notification Type", selection: $notificationType) {
+                        Text("Time-based").tag("time")
+                        Text("Location-based").tag("location")
                     }
-                    .onChange(of: notificationMinutes) { oldValue, newValue in
-                        if newValue > 0 {
-                            let notificationDate = dueDate.addingTimeInterval(-Double(newValue) * 60)
-                            showingNotificationPastError = notificationDate < Date()
-                            // Clear error if notification is now valid
-                            if notificationDate >= Date() {
+                    .pickerStyle(SegmentedPickerStyle())
+
+                    if notificationType == "time" {
+                        Picker(selection: $notificationMinutes, label: Text(notificationMinutes == 0 ? "Notify me x minutes before" : "Notify me \(notificationMinutes) minute\(notificationMinutes == 1 ? "" : "s") before")) {
+                            Text("No notification").tag(0)
+                            ForEach(1...60, id: \.self) { minutes in
+                                Text("\(minutes) minute\(minutes == 1 ? "" : "s")").tag(minutes)
+                            }
+                        }
+                        .onChange(of: notificationMinutes) { oldValue, newValue in
+                            if newValue > 0 {
+                                let notificationDate = dueDate.addingTimeInterval(-Double(newValue) * 60)
+                                showingNotificationPastError = notificationDate < Date()
+                                if notificationDate >= Date() {
+                                    showingNotificationPastError = false
+                                }
+                            } else {
                                 showingNotificationPastError = false
                             }
+                        }
+                    } else {
+                        // Location-based notification
+                        Picker("Distance", selection: $locationNotificationDistance) {
+                            ForEach(1...50, id: \.self) { distance in
+                                Text("\(distance) metre\(distance == 1 ? "" : "s")").tag(distance)
+                            }
+                        }
+
+                        if pointsOfInterest.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("No points of interest available")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Button(action: {
+                                    showingAddPOI = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "plus.circle.fill")
+                                        Text("Add Point of Interest")
+                                    }
+                                }
+                            }
                         } else {
-                            showingNotificationPastError = false
+                            Picker("Location", selection: $selectedPOI) {
+                                Text("Select a location").tag(nil as PointOfInterest?)
+                                ForEach(pointsOfInterest) { poi in
+                                    Text(poi.name ?? "Unnamed").tag(poi as PointOfInterest?)
+                                }
+                            }
+
+                            if let poi = selectedPOI {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    if let address = poi.address, !address.isEmpty {
+                                        Text(address)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Text("Notify when \(locationNotificationDistance) metre\(locationNotificationDistance == 1 ? "" : "s") away")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
                         }
                     }
                 }
@@ -134,7 +195,7 @@ struct AddEditTaskView: View {
                         saveTask()
                     }
                     // Disable Save when title is empty or current values are invalid
-                    .disabled(title.isEmpty || !isDueDateValid || !isNotificationValid)
+                    .disabled(title.isEmpty || !isDueDateValid || !isNotificationValid || (notificationType == "location" && selectedPOI == nil))
                 }
             }
             .onAppear {
@@ -148,6 +209,11 @@ struct AddEditTaskView: View {
                     dueDate = taskDueDate <= fiveMinutesFromNow ? fiveMinutesFromNow.addingTimeInterval(1) : taskDueDate
                     selectedGroup = task.group
                     notificationMinutes = Int(task.notificationMinutes)
+                    // Load location notification fields
+                    notificationType = task.notificationType ?? "time"
+                    locationNotificationDistance = Int(task.locationNotificationDistance)
+                    if locationNotificationDistance == 0 { locationNotificationDistance = 15 }
+                    selectedPOI = task.notificationLocation
                     showingPastDateError = false
                     showingDateTooSoonError = false
                     showingNotificationPastError = false
@@ -156,12 +222,18 @@ struct AddEditTaskView: View {
                     let now = Date()
                     let sixMinutesFromNow = now.addingTimeInterval(6 * 60)
                     dueDate = sixMinutesFromNow
-                    // Default notification is 1 minute before
+                    // Default notification is 1 minute before (time-based)
                     notificationMinutes = 1
+                    notificationType = "time"
+                    locationNotificationDistance = 15
+                    selectedPOI = nil
                     showingPastDateError = false
                     showingDateTooSoonError = false
                     showingNotificationPastError = false
                 }
+            }
+            .sheet(isPresented: $showingAddPOI) {
+                PointOfInterestManagerView()
             }
         }
     }
@@ -210,8 +282,19 @@ struct AddEditTaskView: View {
             taskToSave.dueDate = dueDate
             taskToSave.startDate = nil
             taskToSave.endDate = nil
-            taskToSave.notificationMinutes = Int16(notificationMinutes)
-            
+
+            // Save notification settings based on type
+            taskToSave.notificationType = notificationType
+            if notificationType == "time" {
+                taskToSave.notificationMinutes = Int16(notificationMinutes)
+                taskToSave.locationNotificationDistance = 0
+                taskToSave.notificationLocation = nil
+            } else {
+                taskToSave.notificationMinutes = 0
+                taskToSave.locationNotificationDistance = Int16(locationNotificationDistance)
+                taskToSave.notificationLocation = selectedPOI
+            }
+
             do {
                 try viewContext.save()
                 // Schedule notification
