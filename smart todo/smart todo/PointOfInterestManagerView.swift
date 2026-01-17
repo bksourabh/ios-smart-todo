@@ -13,57 +13,101 @@ import CoreLocation
 struct PointOfInterestManagerView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
-    
+
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \PointOfInterest.createdAt, ascending: false)],
         animation: .default)
     private var pointsOfInterest: FetchedResults<PointOfInterest>
-    
+
     @State private var showingAddPOI = false
     @State private var editingPOI: PointOfInterest?
-    
+
+    // Suggestions state
+    @State private var showingSuggestions = false
+    @State private var isLoadingSuggestions = false
+    @State private var suggestions: [MKMapItem] = []
+    @State private var selectedSuggestions: Set<String> = []
+    @StateObject private var locationManager = LocationManager.shared
+
     var body: some View {
         NavigationView {
             List {
-                if pointsOfInterest.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "mappin.circle")
-                            .font(.system(size: 50))
-                            .foregroundColor(.gray)
-                        Text("No points of interest yet")
-                            .font(.title3)
-                            .foregroundColor(.gray)
-                        Text("Tap the + button to add your first point of interest")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
-                } else {
-                    ForEach(pointsOfInterest) { poi in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "mappin.circle.fill")
-                                    .foregroundColor(.red)
-                                Text(poi.name ?? "Unnamed Location")
-                                    .font(.headline)
+                // Suggestions button section
+                Section {
+                    Button(action: {
+                        showingSuggestions = true
+                        loadSuggestions()
+                    }) {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.blue.opacity(0.15))
+                                    .frame(width: 40, height: 40)
+                                Image(systemName: "lightbulb.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(.blue)
                             }
-                            if let address = poi.address, !address.isEmpty {
-                                Text(address)
-                                    .font(.subheadline)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Suggestions")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                Text("Find nearby stores, petrol pumps & chemists")
+                                    .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-                            Text(String(format: "Lat: %.6f, Long: %.6f", poi.latitude, poi.longitude))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.gray)
                         }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            editingPOI = poi
-                            showingAddPOI = true
-                        }
+                        .padding(.vertical, 4)
                     }
-                    .onDelete(perform: deletePointsOfInterest)
+                    .buttonStyle(PlainButtonStyle())
+                }
+
+                // Existing POIs section
+                Section(header: pointsOfInterest.isEmpty ? nil : Text("Saved Locations")) {
+                    if pointsOfInterest.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "mappin.circle")
+                                .font(.system(size: 50))
+                                .foregroundColor(.gray)
+                            Text("No points of interest yet")
+                                .font(.title3)
+                                .foregroundColor(.gray)
+                            Text("Tap the + button or use Suggestions to add locations")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else {
+                        ForEach(pointsOfInterest) { poi in
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Image(systemName: "mappin.circle.fill")
+                                        .foregroundColor(.red)
+                                    Text(poi.name ?? "Unnamed Location")
+                                        .font(.headline)
+                                }
+                                if let address = poi.address, !address.isEmpty {
+                                    Text(address)
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                }
+                                Text(String(format: "Lat: %.6f, Long: %.6f", poi.latitude, poi.longitude))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                editingPOI = poi
+                                showingAddPOI = true
+                            }
+                        }
+                        .onDelete(perform: deletePointsOfInterest)
+                    }
                 }
             }
             .navigationTitle("Points of Interest")
@@ -86,6 +130,128 @@ struct PointOfInterestManagerView: View {
             .sheet(isPresented: $showingAddPOI) {
                 AddEditPointOfInterestView(poi: editingPOI)
             }
+            .sheet(isPresented: $showingSuggestions) {
+                SuggestionsView(
+                    suggestions: $suggestions,
+                    selectedSuggestions: $selectedSuggestions,
+                    isLoading: $isLoadingSuggestions,
+                    onAddSelected: addSelectedSuggestions
+                )
+            }
+        }
+    }
+
+    private func loadSuggestions() {
+        isLoadingSuggestions = true
+        suggestions = []
+        selectedSuggestions = []
+
+        Task {
+            // Get current location
+            var searchCenter = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+            if let currentLocation = try? await locationManager.getCurrentLocation() {
+                searchCenter = currentLocation.coordinate
+            }
+
+            // 20km radius
+            let radiusInDegrees = 0.18 // approximately 20km
+            let searchRegion = MKCoordinateRegion(
+                center: searchCenter,
+                span: MKCoordinateSpan(latitudeDelta: radiusInDegrees * 2, longitudeDelta: radiusInDegrees * 2)
+            )
+
+            // Search for stores, petrol pumps, and chemists
+            let searchQueries = ["store", "supermarket", "grocery", "petrol station", "gas station", "fuel", "pharmacy", "chemist", "drugstore"]
+            var allResults: [MKMapItem] = []
+
+            // Use a timeout of 15 seconds
+            let searchTask = Task {
+                for query in searchQueries {
+                    if Task.isCancelled { break }
+
+                    let request = MKLocalSearch.Request()
+                    request.naturalLanguageQuery = query
+                    request.region = searchRegion
+
+                    let search = MKLocalSearch(request: request)
+                    do {
+                        let response = try await search.start()
+                        allResults.append(contentsOf: response.mapItems)
+                    } catch {
+                        print("Search error for \(query): \(error.localizedDescription)")
+                    }
+                }
+                return allResults
+            }
+
+            // Wait for results with 15-second timeout
+            let timeoutTask = Task {
+                try await Task.sleep(nanoseconds: 15_000_000_000) // 15 seconds
+                searchTask.cancel()
+            }
+
+            let results = await searchTask.value
+            timeoutTask.cancel()
+
+            await MainActor.run {
+                // Filter to only include results within 20km
+                let maxDistance: CLLocationDistance = 20000 // 20km in meters
+                let centerLocation = CLLocation(latitude: searchCenter.latitude, longitude: searchCenter.longitude)
+
+                let filteredResults = results.filter { item in
+                    let itemLocation = CLLocation(latitude: item.location.coordinate.latitude, longitude: item.location.coordinate.longitude)
+                    return itemLocation.distance(from: centerLocation) <= maxDistance
+                }
+
+                // Remove duplicates based on location
+                var uniqueResults: [MKMapItem] = []
+                var seenLocations: Set<String> = []
+                for item in filteredResults {
+                    let key = "\(String(format: "%.5f", item.location.coordinate.latitude))-\(String(format: "%.5f", item.location.coordinate.longitude))"
+                    if !seenLocations.contains(key) {
+                        seenLocations.insert(key)
+                        uniqueResults.append(item)
+                    }
+                }
+
+                // Sort by distance (nearest first)
+                let sortedResults = uniqueResults.sorted { item1, item2 in
+                    let loc1 = CLLocation(latitude: item1.location.coordinate.latitude, longitude: item1.location.coordinate.longitude)
+                    let loc2 = CLLocation(latitude: item2.location.coordinate.latitude, longitude: item2.location.coordinate.longitude)
+                    return loc1.distance(from: centerLocation) < loc2.distance(from: centerLocation)
+                }
+
+                self.suggestions = sortedResults
+                self.isLoadingSuggestions = false
+            }
+        }
+    }
+
+    private func addSelectedSuggestions() {
+        withAnimation {
+            for suggestion in suggestions {
+                let itemId = "\(suggestion.location.coordinate.latitude)-\(suggestion.location.coordinate.longitude)"
+                if selectedSuggestions.contains(itemId) {
+                    let newPOI = PointOfInterest(context: viewContext)
+                    newPOI.id = UUID()
+                    newPOI.name = suggestion.name ?? "Unnamed Location"
+                    newPOI.latitude = suggestion.location.coordinate.latitude
+                    newPOI.longitude = suggestion.location.coordinate.longitude
+                    if let address = suggestion.address {
+                        newPOI.address = address.fullAddress
+                    }
+                    newPOI.createdAt = Date()
+                }
+            }
+
+            do {
+                try viewContext.save()
+                showingSuggestions = false
+                selectedSuggestions = []
+            } catch {
+                let nsError = error as NSError
+                print("Error saving POIs: \(nsError), \(nsError.userInfo)")
+            }
         }
     }
     
@@ -103,12 +269,215 @@ struct PointOfInterestManagerView: View {
     }
 }
 
+// MARK: - Suggestions View
+
+struct SuggestionsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var suggestions: [MKMapItem]
+    @Binding var selectedSuggestions: Set<String>
+    @Binding var isLoading: Bool
+    var onAddSelected: () -> Void
+
+    @StateObject private var locationManager = LocationManager.shared
+
+    private func itemId(for item: MKMapItem) -> String {
+        "\(item.location.coordinate.latitude)-\(item.location.coordinate.longitude)"
+    }
+
+    private func distanceText(for item: MKMapItem) -> String {
+        guard let currentLocation = locationManager.getCachedLocation() else {
+            return ""
+        }
+        let itemLocation = CLLocation(latitude: item.location.coordinate.latitude, longitude: item.location.coordinate.longitude)
+        let distance = itemLocation.distance(from: currentLocation)
+        if distance < 1000 {
+            return String(format: "%.0f m", distance)
+        } else {
+            return String(format: "%.1f km", distance / 1000)
+        }
+    }
+
+    private func categoryIcon(for item: MKMapItem) -> String {
+        let name = (item.name ?? "").lowercased()
+        if name.contains("petrol") || name.contains("gas") || name.contains("fuel") || name.contains("shell") || name.contains("bp") || name.contains("chevron") {
+            return "fuelpump.fill"
+        } else if name.contains("pharmacy") || name.contains("chemist") || name.contains("drug") || name.contains("medical") {
+            return "cross.case.fill"
+        } else {
+            return "cart.fill"
+        }
+    }
+
+    private func categoryColor(for item: MKMapItem) -> Color {
+        let name = (item.name ?? "").lowercased()
+        if name.contains("petrol") || name.contains("gas") || name.contains("fuel") || name.contains("shell") || name.contains("bp") || name.contains("chevron") {
+            return .orange
+        } else if name.contains("pharmacy") || name.contains("chemist") || name.contains("drug") || name.contains("medical") {
+            return .green
+        } else {
+            return .blue
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                if isLoading {
+                    VStack(spacing: 20) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Searching nearby...")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        Text("Looking for stores, petrol pumps & chemists within 20 km")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if suggestions.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 50))
+                            .foregroundColor(.gray)
+                        Text("No suggestions found")
+                            .font(.title3)
+                            .foregroundColor(.gray)
+                        Text("We couldn't find any stores, petrol pumps, or chemists within 20 km of your location")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        Section(header: Text("\(suggestions.count) locations found").textCase(nil)) {
+                            ForEach(suggestions) { item in
+                                Button(action: {
+                                    let id = itemId(for: item)
+                                    if selectedSuggestions.contains(id) {
+                                        selectedSuggestions.remove(id)
+                                    } else {
+                                        selectedSuggestions.insert(id)
+                                    }
+                                }) {
+                                    HStack(spacing: 14) {
+                                        // Selection indicator
+                                        ZStack {
+                                            Circle()
+                                                .stroke(selectedSuggestions.contains(itemId(for: item)) ? Color.blue : Color.gray.opacity(0.3), lineWidth: 2)
+                                                .frame(width: 26, height: 26)
+                                            if selectedSuggestions.contains(itemId(for: item)) {
+                                                Circle()
+                                                    .fill(Color.blue)
+                                                    .frame(width: 18, height: 18)
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(.white)
+                                            }
+                                        }
+
+                                        // Category icon
+                                        ZStack {
+                                            Circle()
+                                                .fill(categoryColor(for: item).opacity(0.15))
+                                                .frame(width: 40, height: 40)
+                                            Image(systemName: categoryIcon(for: item))
+                                                .font(.system(size: 16))
+                                                .foregroundColor(categoryColor(for: item))
+                                        }
+
+                                        // Location details
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(item.name ?? "Unknown")
+                                                .font(.system(size: 15, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                            if let address = item.address {
+                                                Text(address.shortAddress ?? address.fullAddress)
+                                                    .font(.system(size: 12))
+                                                    .foregroundColor(.secondary)
+                                                    .lineLimit(1)
+                                            }
+                                        }
+
+                                        Spacer()
+
+                                        // Distance badge
+                                        Text(distanceText(for: item))
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundColor(.secondary)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.gray.opacity(0.1))
+                                            .cornerRadius(6)
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                    }
+                    .listStyle(InsetGroupedListStyle())
+                }
+
+                // Add selected button
+                if !suggestions.isEmpty && !selectedSuggestions.isEmpty {
+                    Button(action: onAddSelected) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 18))
+                            Text("Add \(selectedSuggestions.count) Location\(selectedSuggestions.count == 1 ? "" : "s")")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.blue)
+                        .cornerRadius(14)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color(UIColor.systemBackground))
+                }
+            }
+            .navigationTitle("Suggestions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !suggestions.isEmpty {
+                        Button(action: {
+                            if selectedSuggestions.count == suggestions.count {
+                                selectedSuggestions.removeAll()
+                            } else {
+                                for item in suggestions {
+                                    selectedSuggestions.insert(itemId(for: item))
+                                }
+                            }
+                        }) {
+                            Text(selectedSuggestions.count == suggestions.count ? "Deselect All" : "Select All")
+                                .font(.subheadline)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct AddEditPointOfInterestView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
-    
+
     var poi: PointOfInterest?
-    
+
     @State private var name: String = ""
     @State private var address: String = ""
     @State private var latitude: Double = 0.0
