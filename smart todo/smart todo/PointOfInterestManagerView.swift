@@ -405,41 +405,7 @@ struct MapLocationPickerView: View {
                         // Dropdown suggestions
                         if showingSearchResults || !searchText.isEmpty {
                             VStack(spacing: 0) {
-                                // Search Nearby option
-                                Button(action: {
-                                    searchNearby()
-                                }) {
-                                    HStack(spacing: 14) {
-                                        ZStack {
-                                            Circle()
-                                                .fill(Color.blue.opacity(0.15))
-                                                .frame(width: 36, height: 36)
-                                            Image(systemName: "location.fill")
-                                                .font(.system(size: 16, weight: .semibold))
-                                                .foregroundColor(.blue)
-                                        }
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("Search Nearby")
-                                                .font(.system(size: 15, weight: .semibold))
-                                                .foregroundColor(.primary)
-                                            Text("Find places around you")
-                                                .font(.system(size: 12))
-                                                .foregroundColor(.secondary)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .foregroundColor(.gray.opacity(0.5))
-                                    }
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 12)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-
                                 if !searchResults.isEmpty {
-                                    Divider()
-                                        .padding(.leading, 64)
-
                                     let sortedResults = sortResultsByDistance(searchResults)
                                     let topResults = Array(sortedResults.prefix(5))
                                     ForEach(topResults) { item in
