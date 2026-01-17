@@ -277,7 +277,35 @@ struct MapLocationPickerView: View {
     @State private var hasUserSelectedLocation = false
     @State private var mapPosition: MapCameraPosition = .automatic
     @State private var isNearbySearch = false
+
+    // Map style and Look Around
+    @State private var selectedMapStyle: MapStyleOption = .standard
+    @State private var showMapStylePicker = false
+    @State private var lookAroundScene: MKLookAroundScene?
+    @State private var isLoadingLookAround = false
+    @State private var selectedMapItem: MKMapItem?
+    @State private var showingPlaceDetails = false
+
+    enum MapStyleOption: String, CaseIterable {
+        case standard = "Standard"
+        case satellite = "Satellite"
+        case hybrid = "Hybrid"
+        case realistic = "3D"
+    }
     
+    private var currentMapStyle: MapStyle {
+        switch selectedMapStyle {
+        case .standard:
+            return .standard(elevation: .realistic, pointsOfInterest: .all)
+        case .satellite:
+            return .imagery(elevation: .realistic)
+        case .hybrid:
+            return .hybrid(elevation: .realistic, pointsOfInterest: .all)
+        case .realistic:
+            return .standard(elevation: .realistic, emphasis: .automatic, pointsOfInterest: .all, showsTraffic: true)
+        }
+    }
+
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
@@ -286,25 +314,32 @@ struct MapLocationPickerView: View {
                         ForEach(annotationItems) { pin in
                             Annotation("", coordinate: pin.coordinate) {
                                 VStack(spacing: 0) {
-                                    Image(systemName: "mappin.circle.fill")
-                                        .font(.system(size: 44))
-                                        .foregroundStyle(.white, .red)
-                                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                                    Image(systemName: "arrowtriangle.down.fill")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.red)
-                                        .offset(y: -5)
+                                    ZStack {
+                                        Circle()
+                                            .fill(.red)
+                                            .frame(width: 32, height: 32)
+                                            .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                        Circle()
+                                            .fill(.white)
+                                            .frame(width: 12, height: 12)
+                                    }
+                                    Triangle()
+                                        .fill(.red)
+                                        .frame(width: 14, height: 10)
+                                        .rotationEffect(.degrees(180))
+                                        .offset(y: -2)
                                 }
-                                .offset(y: -22)
+                                .offset(y: -21)
                             }
                         }
                     }
-                    .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .including([.restaurant, .cafe, .store, .gasStation, .hospital, .pharmacy])))
+                    .mapStyle(currentMapStyle)
                     .onMapCameraChange { context in
                         region = context.region
                     }
                     .mapControls {
                         MapCompass()
+                        MapScaleView()
                     }
                     .overlay(
                         // Transparent overlay to capture taps
@@ -463,22 +498,38 @@ struct MapLocationPickerView: View {
                         
                         Spacer()
 
-                        // Zoom controls and current location button
-                        HStack {
-                            // Current location button
-                            Button(action: loadCurrentLocation) {
-                                Image(systemName: "location.fill")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(.blue)
-                                    .frame(width: 44, height: 44)
-                                    .background(.ultraThinMaterial)
-                                    .cornerRadius(10)
-                                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                        // Map controls row
+                        HStack(alignment: .bottom) {
+                            // Left side controls
+                            VStack(spacing: 8) {
+                                // Current location button
+                                Button(action: loadCurrentLocation) {
+                                    Image(systemName: isFetchingLocation ? "location" : "location.fill")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.blue)
+                                        .frame(width: 44, height: 44)
+                                        .background(.ultraThinMaterial)
+                                        .cornerRadius(10)
+                                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                }
+                                .disabled(isFetchingLocation)
+
+                                // Map style picker button
+                                Button(action: { showMapStylePicker.toggle() }) {
+                                    Image(systemName: mapStyleIcon)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.primary)
+                                        .frame(width: 44, height: 44)
+                                        .background(.ultraThinMaterial)
+                                        .cornerRadius(10)
+                                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                }
                             }
                             .padding(.leading, 16)
 
                             Spacer()
 
+                            // Right side - Zoom controls
                             VStack(spacing: 1) {
                                 Button(action: zoomIn) {
                                     Image(systemName: "plus")
@@ -503,39 +554,105 @@ struct MapLocationPickerView: View {
                             .padding(.trailing, 16)
                         }
 
-                        // Place details card
-                        if !selectedPlaceName.isEmpty || !selectedPlaceAddress.isEmpty {
-                            HStack(spacing: 14) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.red.opacity(0.15))
-                                        .frame(width: 44, height: 44)
-                                    Image(systemName: "mappin.circle.fill")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(.red)
-                                }
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    if !selectedPlaceName.isEmpty {
-                                        Text(selectedPlaceName)
-                                            .font(.system(size: 16, weight: .semibold))
-                                            .foregroundColor(.primary)
-                                            .lineLimit(1)
-                                    }
-                                    if !selectedPlaceAddress.isEmpty {
-                                        Text(selectedPlaceAddress)
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(2)
+                        // Map style picker overlay
+                        if showMapStylePicker {
+                            HStack(spacing: 8) {
+                                ForEach(MapStyleOption.allCases, id: \.self) { style in
+                                    Button(action: {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            selectedMapStyle = style
+                                            showMapStylePicker = false
+                                        }
+                                    }) {
+                                        VStack(spacing: 6) {
+                                            Image(systemName: iconForMapStyle(style))
+                                                .font(.system(size: 20))
+                                                .foregroundColor(selectedMapStyle == style ? .white : .primary)
+                                                .frame(width: 50, height: 50)
+                                                .background(selectedMapStyle == style ? Color.blue : Color.gray.opacity(0.15))
+                                                .cornerRadius(10)
+                                            Text(style.rawValue)
+                                                .font(.system(size: 11, weight: .medium))
+                                                .foregroundColor(.primary)
+                                        }
                                     }
                                 }
-
-                                Spacer()
                             }
-                            .padding(14)
+                            .padding(12)
                             .background(.ultraThinMaterial)
                             .cornerRadius(14)
-                            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                            .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 4)
+                            .padding(.horizontal, 16)
+                            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        }
+
+                        // Enhanced place details card with Look Around
+                        if !selectedPlaceName.isEmpty || !selectedPlaceAddress.isEmpty {
+                            VStack(spacing: 0) {
+                                // Look Around preview
+                                if let scene = lookAroundScene {
+                                    LookAroundPreview(scene: .constant(scene))
+                                        .frame(height: 140)
+                                        .cornerRadius(14, corners: [.topLeft, .topRight])
+                                } else if isLoadingLookAround {
+                                    ZStack {
+                                        Rectangle()
+                                            .fill(Color.gray.opacity(0.1))
+                                            .frame(height: 140)
+                                        ProgressView()
+                                    }
+                                    .cornerRadius(14, corners: [.topLeft, .topRight])
+                                }
+
+                                // Place info
+                                HStack(spacing: 14) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.red.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "mappin.circle.fill")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(.red)
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        if !selectedPlaceName.isEmpty {
+                                            Text(selectedPlaceName)
+                                                .font(.system(size: 17, weight: .semibold))
+                                                .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                        }
+                                        if !selectedPlaceAddress.isEmpty {
+                                            Text(selectedPlaceAddress)
+                                                .font(.system(size: 13))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(2)
+                                        }
+                                        if let coordinate = droppedPinCoordinate ?? selectedLocation {
+                                            Text(String(format: "%.5f, %.5f", coordinate.latitude, coordinate.longitude))
+                                                .font(.system(size: 11, design: .monospaced))
+                                                .foregroundColor(Color(UIColor.tertiaryLabel))
+                                        }
+                                    }
+
+                                    Spacer()
+
+                                    // Directions button (visual only)
+                                    Button(action: {}) {
+                                        Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                                            .font(.system(size: 18))
+                                            .foregroundColor(.blue)
+                                            .frame(width: 40, height: 40)
+                                            .background(Color.blue.opacity(0.15))
+                                            .cornerRadius(20)
+                                    }
+                                }
+                                .padding(14)
+                                .background(.ultraThinMaterial)
+                                .cornerRadius(lookAroundScene != nil || isLoadingLookAround ? 0 : 14, corners: lookAroundScene != nil || isLoadingLookAround ? [.bottomLeft, .bottomRight] : .allCorners)
+                            }
+                            .cornerRadius(14)
+                            .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
                             .padding(.horizontal, 16)
                             .padding(.top, 12)
                         }
@@ -690,6 +807,9 @@ struct MapLocationPickerView: View {
     
     private func geocodeLocation(coordinate: CLLocationCoordinate2D) {
         isGeocoding = true
+        // Also load Look Around scene for this location
+        loadLookAroundScene(for: coordinate)
+
         Task {
             do {
                 let clLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
@@ -950,6 +1070,9 @@ struct MapLocationPickerView: View {
             // Fallback to reverse geocoding if address is not available
             geocodeLocation(coordinate: coordinate)
         }
+
+        // Load Look Around scene for this location
+        loadLookAroundScene(for: coordinate)
     }
     
     private func selectCurrentLocation() {
@@ -990,6 +1113,77 @@ struct MapLocationPickerView: View {
 
     private func formatAddress(_ address: MKAddress) -> String {
         return address.fullAddress
+    }
+
+    private var mapStyleIcon: String {
+        iconForMapStyle(selectedMapStyle)
+    }
+
+    private func iconForMapStyle(_ style: MapStyleOption) -> String {
+        switch style {
+        case .standard:
+            return "map"
+        case .satellite:
+            return "globe.americas.fill"
+        case .hybrid:
+            return "square.2.layers.3d"
+        case .realistic:
+            return "view.3d"
+        }
+    }
+
+    private func loadLookAroundScene(for coordinate: CLLocationCoordinate2D) {
+        isLoadingLookAround = true
+        lookAroundScene = nil
+
+        Task {
+            do {
+                let request = MKLookAroundSceneRequest(coordinate: coordinate)
+                let scene = try await request.scene
+                await MainActor.run {
+                    self.lookAroundScene = scene
+                    self.isLoadingLookAround = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.lookAroundScene = nil
+                    self.isLoadingLookAround = false
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Helper Shapes
+
+struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
+    }
+}
+
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCorner(radius: radius, corners: corners))
     }
 }
 
