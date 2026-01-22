@@ -12,6 +12,7 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var notificationManager: NotificationManager
     @EnvironmentObject var authManager: AuthenticationManager
+    @EnvironmentObject var tourManager: GuidedTourManager
 
     @FetchRequest(
         sortDescriptors: [
@@ -25,6 +26,7 @@ struct ContentView: View {
     @State private var selectedTask: TodoTask?
     @State private var showingPointOfInterestManager = false
     @State private var showingUserProfile = false
+    @State private var highlightFrames: [TourStep: CGRect] = [:]
 
     private var hasCompletedTasks: Bool {
         tasks.contains { $0.isCompleted }
@@ -41,92 +43,106 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                if tasks.isEmpty {
-                    VStack(spacing: 20) {
-                        Image(systemName: "checklist")
-                            .font(.system(size: 60))
-                            .foregroundColor(.gray)
-                        Text("No tasks yet")
-                            .font(.title2)
-                            .foregroundColor(.gray)
-                        Text("Tap the + button to add your first task")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
-                        ForEach(tasks) { task in
-                            TaskRow(task: task) {
-                                toggleTaskCompletion(task)
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                selectedTask = task
-                                showingAddTask = true
-                            }
+        ZStack {
+            NavigationView {
+                VStack(spacing: 0) {
+                    if tasks.isEmpty {
+                        VStack(spacing: 20) {
+                            Image(systemName: "checklist")
+                                .font(.system(size: 60))
+                                .foregroundColor(.gray)
+                            Text("No tasks yet")
+                                .font(.title2)
+                                .foregroundColor(.gray)
+                            Text("Tap the + button to add your first task")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
-                        .onDelete(perform: deleteTasks)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .tourHighlight(for: .taskList)
+                    } else {
+                        List {
+                            ForEach(tasks) { task in
+                                TaskRow(task: task) {
+                                    toggleTaskCompletion(task)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedTask = task
+                                    showingAddTask = true
+                                }
+                            }
+                            .onDelete(perform: deleteTasks)
+                        }
+                        .listStyle(PlainListStyle())
+                        .tourHighlight(for: .taskList)
                     }
-                    .listStyle(PlainListStyle())
                 }
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    HStack(spacing: 12) {
-                        // Profile button
-                        Button(action: {
-                            showingUserProfile = true
-                        }) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.blue.opacity(0.15))
-                                    .frame(width: 32, height: 32)
-                                Text(userInitials)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.blue)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        HStack(spacing: 12) {
+                            // Profile button
+                            Button(action: {
+                                showingUserProfile = true
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.blue.opacity(0.15))
+                                        .frame(width: 32, height: 32)
+                                    Text(userInitials)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(.blue)
+                                }
                             }
-                        }
+                            .tourHighlight(for: .profileButton)
 
-                        if hasCompletedTasks {
-                            Button(action: clearCompletedTasks) {
-                                Text("Clear Completed")
-                                    .font(.subheadline)
+                            if hasCompletedTasks {
+                                Button(action: clearCompletedTasks) {
+                                    Text("Clear Completed")
+                                        .font(.subheadline)
+                                }
                             }
                         }
                     }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button(action: {
-                            showingPointOfInterestManager = true
-                        }) {
-                            Image(systemName: "mappin.circle")
-                        }
-                        Button(action: {
-                            selectedTask = nil
-                            showingAddTask = true
-                        }) {
-                            Image(systemName: "plus")
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        HStack(spacing: 16) {
+                            Button(action: {
+                                showingPointOfInterestManager = true
+                            }) {
+                                Image(systemName: "mappin.circle")
+                            }
+                            .tourHighlight(for: .locationButton)
+
+                            Button(action: {
+                                selectedTask = nil
+                                showingAddTask = true
+                            }) {
+                                Image(systemName: "plus")
+                            }
+                            .tourHighlight(for: .addTaskButton)
                         }
                     }
                 }
+                .sheet(isPresented: $showingAddTask) {
+                    AddEditTaskView(task: selectedTask)
+                }
+                .sheet(isPresented: $showingPointOfInterestManager) {
+                    PointOfInterestManagerView()
+                }
+                .sheet(isPresented: $showingUserProfile) {
+                    UserProfileView(authManager: authManager)
+                }
+                .onAppear {
+                    // Reschedule notifications when view appears
+                    notificationManager.scheduleNotificationsForTodayTasks(context: viewContext)
+                }
             }
-            .sheet(isPresented: $showingAddTask) {
-                AddEditTaskView(task: selectedTask)
+            .onPreferenceChange(HighlightFramePreferenceKey.self) { frames in
+                highlightFrames = frames
             }
-            .sheet(isPresented: $showingPointOfInterestManager) {
-                PointOfInterestManagerView()
-            }
-            .sheet(isPresented: $showingUserProfile) {
-                UserProfileView(authManager: authManager)
-            }
-            .onAppear {
-                // Reschedule notifications when view appears
-                notificationManager.scheduleNotificationsForTodayTasks(context: viewContext)
-            }
+
+            // Guided tour overlay
+            GuidedTourOverlay(tourManager: tourManager, highlightFrames: highlightFrames)
         }
     }
     
@@ -188,4 +204,6 @@ struct ContentView: View {
     ContentView()
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
         .environmentObject(NotificationManager.shared)
+        .environmentObject(AuthenticationManager.shared)
+        .environmentObject(GuidedTourManager.shared)
 }
