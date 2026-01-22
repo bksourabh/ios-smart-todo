@@ -114,8 +114,11 @@ struct PointOfInterestManagerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") {
-                        dismiss()
+                    HStack(spacing: 12) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        HelpButton(screenType: .pointOfInterest)
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {

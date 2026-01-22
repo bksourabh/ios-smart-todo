@@ -26,6 +26,7 @@ struct ContentView: View {
     @State private var selectedTask: TodoTask?
     @State private var showingPointOfInterestManager = false
     @State private var showingUserProfile = false
+    @State private var showingVoiceInput = false
     @State private var highlightFrames: [TourStep: CGRect] = [:]
 
     private var hasCompletedTasks: Bool {
@@ -106,6 +107,8 @@ struct ContentView: View {
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
                         HStack(spacing: 16) {
+                            HelpButton(screenType: .taskList)
+
                             Button(action: {
                                 showingPointOfInterestManager = true
                             }) {
@@ -132,6 +135,9 @@ struct ContentView: View {
                 .sheet(isPresented: $showingUserProfile) {
                     UserProfileView(authManager: authManager)
                 }
+                .sheet(isPresented: $showingVoiceInput) {
+                    VoiceInputTaskView()
+                }
                 .onAppear {
                     // Reschedule notifications when view appears
                     notificationManager.scheduleNotificationsForTodayTasks(context: viewContext)
@@ -143,6 +149,19 @@ struct ContentView: View {
 
             // Guided tour overlay
             GuidedTourOverlay(tourManager: tourManager, highlightFrames: highlightFrames)
+
+            // Floating voice input button
+            if !tourManager.isShowingTour {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        VoiceInputButton(showingVoiceInput: $showingVoiceInput)
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 24)
+                    }
+                }
+            }
         }
     }
     

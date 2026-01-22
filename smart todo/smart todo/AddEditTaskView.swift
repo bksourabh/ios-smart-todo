@@ -184,8 +184,11 @@ struct AddEditTaskView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
+                    HStack(spacing: 12) {
+                        Button("Cancel") {
+                            dismiss()
+                        }
+                        HelpButton(screenType: .addEditTask)
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {

@@ -123,7 +123,21 @@ final class SpeechRecognizer: ObservableObject {
                     self.transcript = result.bestTranscription.formattedString
                 }
 
-                if error != nil || (result?.isFinal ?? false) {
+                if let error = error {
+                    // Check if it's a cancellation (user stopped) or actual error
+                    let nsError = error as NSError
+                    if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 1110 {
+                        // No speech detected - this is not a critical error
+                        if self.transcript.isEmpty {
+                            self.error = .noSpeechDetected
+                        }
+                    } else if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 216 {
+                        // Recognition was cancelled - not an error
+                    } else {
+                        self.error = .recognitionFailed
+                    }
+                    self.stopRecording()
+                } else if result?.isFinal ?? false {
                     self.stopRecording()
                 }
             }
@@ -137,6 +151,11 @@ final class SpeechRecognizer: ObservableObject {
     }
 
     func stopRecording() {
+        // Prevent multiple stops
+        guard isRecording else { return }
+
+        isRecording = false
+
         audioEngine?.stop()
         audioEngine?.inputNode.removeTap(onBus: 0)
         recognitionRequest?.endAudio()
@@ -146,10 +165,14 @@ final class SpeechRecognizer: ObservableObject {
         recognitionRequest = nil
         recognitionTask = nil
 
-        isRecording = false
-
         // Deactivate audio session
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    func reset() {
+        stopRecording()
+        transcript = ""
+        error = nil
     }
 }
 
