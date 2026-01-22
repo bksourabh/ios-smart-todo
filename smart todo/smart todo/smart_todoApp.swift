@@ -15,13 +15,23 @@ struct smart_todoApp: App {
     let persistenceController = PersistenceController.shared
     @StateObject private var themeManager = ThemeManager()
     @StateObject private var notificationManager = NotificationManager.shared
+    @StateObject private var authManager = AuthenticationManager.shared
 
     var body: some Scene {
         WindowGroup {
+            mainView
+                .animation(.easeInOut, value: authManager.isAuthenticated)
+        }
+    }
+
+    @ViewBuilder
+    private var mainView: some View {
+        if authManager.isAuthenticated {
             ContentView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .environmentObject(themeManager)
                 .environmentObject(notificationManager)
+                .environmentObject(authManager)
                 .preferredColorScheme(themeManager.colorScheme)
                 .onAppear {
                     Task {
@@ -38,6 +48,9 @@ struct smart_todoApp: App {
                     notificationManager.checkAuthorizationStatus()
                     notificationManager.scheduleNotificationsForTodayTasks(context: persistenceController.container.viewContext)
                 }
+        } else {
+            LoginView(authManager: authManager)
+                .preferredColorScheme(themeManager.colorScheme)
         }
     }
 }

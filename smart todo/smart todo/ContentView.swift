@@ -11,7 +11,8 @@ import CoreData
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var notificationManager: NotificationManager
-    
+    @EnvironmentObject var authManager: AuthenticationManager
+
     @FetchRequest(
         sortDescriptors: [
             NSSortDescriptor(keyPath: \TodoTask.isCompleted, ascending: true),
@@ -19,13 +20,24 @@ struct ContentView: View {
         ],
         animation: .default)
     private var tasks: FetchedResults<TodoTask>
-    
+
     @State private var showingAddTask = false
     @State private var selectedTask: TodoTask?
     @State private var showingPointOfInterestManager = false
-    
+    @State private var showingUserProfile = false
+
     private var hasCompletedTasks: Bool {
         tasks.contains { $0.isCompleted }
+    }
+
+    private var userInitials: String {
+        let names = authManager.userName.split(separator: " ")
+        if names.count >= 2 {
+            return String(names[0].prefix(1)) + String(names[1].prefix(1))
+        } else if let first = names.first {
+            return String(first.prefix(2))
+        }
+        return "U"
     }
 
     var body: some View {
@@ -63,7 +75,21 @@ struct ContentView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    HStack {
+                    HStack(spacing: 12) {
+                        // Profile button
+                        Button(action: {
+                            showingUserProfile = true
+                        }) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.blue.opacity(0.15))
+                                    .frame(width: 32, height: 32)
+                                Text(userInitials)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.blue)
+                            }
+                        }
+
                         if hasCompletedTasks {
                             Button(action: clearCompletedTasks) {
                                 Text("Clear Completed")
@@ -93,6 +119,9 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingPointOfInterestManager) {
                 PointOfInterestManagerView()
+            }
+            .sheet(isPresented: $showingUserProfile) {
+                UserProfileView(authManager: authManager)
             }
             .onAppear {
                 // Reschedule notifications when view appears

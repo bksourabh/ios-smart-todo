@@ -34,16 +34,26 @@ struct AddEditTaskView: View {
     @State private var showingAddPOI = false
     
     private var isDueDateValid: Bool {
+        // Due date validation only applies to time-based notifications
+        guard notificationType == "time" else { return true }
         let now = Date()
         let fiveMinutesFromNow = now.addingTimeInterval(5 * 60)
         // Due date must be strictly more than 5 minutes in the future
         return dueDate > fiveMinutesFromNow
     }
-    
+
     private var isNotificationValid: Bool {
+        // Notification validation only applies to time-based notifications
+        guard notificationType == "time" else { return true }
         guard notificationMinutes > 0 else { return true } // 0 means no notification
         let notificationDate = dueDate.addingTimeInterval(-Double(notificationMinutes) * 60)
         return notificationDate >= Date()
+    }
+
+    private var isLocationNotificationValid: Bool {
+        // Location notification requires a selected POI
+        guard notificationType == "location" else { return true }
+        return selectedPOI != nil
     }
     
     @ViewBuilder
@@ -68,35 +78,38 @@ struct AddEditTaskView: View {
                 Section(header: Text("Task Details")) {
                     TextField("Task Title", text: $title)
                 }
-                
-                Section(header: Text("Due Date"), footer: dueDateFooter) {
-                    DatePicker("Due Date", selection: $dueDate, in: Date().addingTimeInterval(5 * 60 + 1)..., displayedComponents: [.date, .hourAndMinute])
-                        .onChange(of: dueDate) { oldValue, newValue in
-                            let now = Date()
-                            let fiveMinutesFromNow = now.addingTimeInterval(5 * 60)
-                            showingPastDateError = newValue <= now
-                            // Due date must be strictly more than 5 minutes in the future
-                            showingDateTooSoonError = newValue <= fiveMinutesFromNow
-                            // Clear errors if date is now valid (strictly more than 5 minutes)
-                            if newValue > fiveMinutesFromNow {
-                                showingPastDateError = false
-                                showingDateTooSoonError = false
-                            }
-                            // Revalidate notification when due date changes
-                            if notificationMinutes > 0 {
-                                let notificationDate = newValue.addingTimeInterval(-Double(notificationMinutes) * 60)
-                                showingNotificationPastError = notificationDate < Date()
-                                // Clear error if notification is now valid
-                                if notificationDate >= Date() {
+
+                // Only show Due Date section for time-based notifications
+                if notificationType == "time" {
+                    Section(header: Text("Due Date"), footer: dueDateFooter) {
+                        DatePicker("Due Date", selection: $dueDate, in: Date().addingTimeInterval(5 * 60 + 1)..., displayedComponents: [.date, .hourAndMinute])
+                            .onChange(of: dueDate) { oldValue, newValue in
+                                let now = Date()
+                                let fiveMinutesFromNow = now.addingTimeInterval(5 * 60)
+                                showingPastDateError = newValue <= now
+                                // Due date must be strictly more than 5 minutes in the future
+                                showingDateTooSoonError = newValue <= fiveMinutesFromNow
+                                // Clear errors if date is now valid (strictly more than 5 minutes)
+                                if newValue > fiveMinutesFromNow {
+                                    showingPastDateError = false
+                                    showingDateTooSoonError = false
+                                }
+                                // Revalidate notification when due date changes
+                                if notificationMinutes > 0 {
+                                    let notificationDate = newValue.addingTimeInterval(-Double(notificationMinutes) * 60)
+                                    showingNotificationPastError = notificationDate < Date()
+                                    // Clear error if notification is now valid
+                                    if notificationDate >= Date() {
+                                        showingNotificationPastError = false
+                                    }
+                                } else {
                                     showingNotificationPastError = false
                                 }
-                            } else {
-                                showingNotificationPastError = false
                             }
-                        }
+                    }
                 }
-                
-                Section(header: Text("Notification"), footer: notificationFooter) {
+
+                Section(header: Text("Notification"), footer: notificationType == "time" ? notificationFooter : nil) {
                     Picker("Notification Type", selection: $notificationType) {
                         Text("Time-based").tag("time")
                         Text("Location-based").tag("location")
@@ -180,7 +193,7 @@ struct AddEditTaskView: View {
                         saveTask()
                     }
                     // Disable Save when title is empty or current values are invalid
-                    .disabled(title.isEmpty || !isDueDateValid || !isNotificationValid || (notificationType == "location" && selectedPOI == nil))
+                    .disabled(title.isEmpty || !isDueDateValid || !isNotificationValid || !isLocationNotificationValid)
                 }
             }
             .onAppear {
@@ -228,28 +241,30 @@ struct AddEditTaskView: View {
             showingPastDateError = false
             showingDateTooSoonError = false
             showingNotificationPastError = false
-            
-            // Validate due date is strictly more than 5 minutes in the future
-            let now = Date()
-            let fiveMinutesFromNow = now.addingTimeInterval(5 * 60)
-            if dueDate <= now {
-                showingPastDateError = true
-                return
-            }
-            if dueDate <= fiveMinutesFromNow {
-                showingDateTooSoonError = true
-                return
-            }
-            
-            // Validate notification is not in the past
-            if notificationMinutes > 0 {
-                let notificationDate = dueDate.addingTimeInterval(-Double(notificationMinutes) * 60)
-                if notificationDate < Date() {
-                    showingNotificationPastError = true
+
+            // Validate due date only for time-based notifications
+            if notificationType == "time" {
+                let now = Date()
+                let fiveMinutesFromNow = now.addingTimeInterval(5 * 60)
+                if dueDate <= now {
+                    showingPastDateError = true
                     return
                 }
+                if dueDate <= fiveMinutesFromNow {
+                    showingDateTooSoonError = true
+                    return
+                }
+
+                // Validate notification is not in the past
+                if notificationMinutes > 0 {
+                    let notificationDate = dueDate.addingTimeInterval(-Double(notificationMinutes) * 60)
+                    if notificationDate < Date() {
+                        showingNotificationPastError = true
+                        return
+                    }
+                }
             }
-            
+
             let taskToSave: TodoTask
             if let existingTask = task {
                 taskToSave = existingTask
@@ -259,21 +274,27 @@ struct AddEditTaskView: View {
                 taskToSave.createdAt = Date()
                 taskToSave.isCompleted = false
             }
-            
-            taskToSave.title = title
-            taskToSave.dateType = "dueDate"
-            taskToSave.group = nil
-            taskToSave.dueDate = dueDate
-            taskToSave.startDate = nil
-            taskToSave.endDate = nil
 
-            // Save notification settings based on type
+            taskToSave.title = title
             taskToSave.notificationType = notificationType
+
+            // Save settings based on notification type
             if notificationType == "time" {
+                taskToSave.dateType = "dueDate"
+                taskToSave.dueDate = dueDate
+                taskToSave.startDate = nil
+                taskToSave.endDate = nil
+                taskToSave.group = nil
                 taskToSave.notificationMinutes = Int16(notificationMinutes)
                 taskToSave.locationNotificationDistance = 0
                 taskToSave.notificationLocation = nil
             } else {
+                // Location-based notification - no due date needed
+                taskToSave.dateType = "location"
+                taskToSave.dueDate = nil
+                taskToSave.startDate = nil
+                taskToSave.endDate = nil
+                taskToSave.group = nil
                 taskToSave.notificationMinutes = 0
                 taskToSave.locationNotificationDistance = Int16(locationNotificationDistance)
                 taskToSave.notificationLocation = selectedPOI
