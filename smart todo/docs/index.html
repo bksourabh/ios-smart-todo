@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Todo - Intelligent Task Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .hero {
+            text-align: center;
+            padding: 80px 20px;
+            color: white;
+        }
+        .logo {
+            font-size: 80px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+        }
+        h1 {
+            font-size: 48px;
+            margin-bottom: 15px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .tagline {
+            font-size: 22px;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+        .features {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto 50px auto;
+            padding: 0 20px;
+        }
+        .feature {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 25px;
+            width: 260px;
+            text-align: center;
+        }
+        .feature-icon {
+            font-size: 36px;
+            margin-bottom: 15px;
+        }
+        .feature h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        .feature p {
+            font-size: 14px;
+            opacity: 0.85;
+        }
+        .app-store-badge {
+            margin-top: 30px;
+        }
+        .app-store-badge img {
+            height: 50px;
+        }
+        .links {
+            margin-top: 60px;
+            padding: 30px;
+            background: rgba(0,0,0,0.2);
+        }
+        .links a {
+            color: white;
+            margin: 0 20px;
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        .links a:hover {
+            opacity: 1;
+        }
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 32px;
+            }
+            .tagline {
+                font-size: 18px;
+            }
+            .feature {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <div class="logo">✓</div>
+        <h1>Smart Todo</h1>
+        <p class="tagline">Intelligent Task Management with Smart Reminders</p>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🔔</div>
+                <h3>Smart Notifications</h3>
+                <p>Get reminded at the perfect time with customizable alerts</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📍</div>
+                <h3>Location Reminders</h3>
+                <p>Automatic alerts when you're near important places</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔒</div>
+                <h3>Privacy First</h3>
+                <p>All data stays on your device - we never collect it</p>
+            </div>
+        </div>
+
+        <div class="app-store-badge">
+            <p style="opacity: 0.7; margin-bottom: 15px;">Coming Soon to the App Store</p>
+            <!-- Replace with actual App Store link once approved -->
+            <!-- <a href="https://apps.apple.com/app/idXXXXXXXXX">
+                <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store">
+            </a> -->
+        </div>
+    </div>
+
+    <div class="links">
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="support.html">Support</a>
+        <a href="https://github.com/bksourabh/ios-smart-todo">GitHub</a>
+    </div>
+</body>
+</html>

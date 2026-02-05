@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support - Smart Todo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #1a1a2e;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #667eea;
+            font-size: 22px;
+            margin: 30px 0 15px 0;
+        }
+        p {
+            margin-bottom: 15px;
+            color: #555;
+        }
+        .faq-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+        .faq-item h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .faq-item p {
+            margin-bottom: 0;
+            font-size: 14px;
+        }
+        .contact-box {
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        .contact-box a {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            margin-top: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .contact-box a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">✓</div>
+            <h1>Support</h1>
+            <p>Smart Todo App</p>
+        </div>
+
+        <h2>Frequently Asked Questions</h2>
+
+        <div class="faq-item">
+            <h3>How do I enable location-based reminders?</h3>
+            <p>Go to iOS Settings → Smart Todo → Location, and select "Always". This allows the app to notify you when you arrive at saved locations, even when the app is closed.</p>
+        </div>
+
+        <div class="faq-item">
+            <h3>Why am I not receiving notifications?</h3>
+            <p>Make sure notifications are enabled in iOS Settings → Smart Todo → Notifications. Also check that Do Not Disturb mode is turned off.</p>
+        </div>
+
+        <div class="faq-item">
+            <h3>How do I add a point of interest?</h3>
+            <p>Tap the location pin icon in the top navigation bar. You can either use Suggestions to find nearby places, or tap the + button to manually add a location.</p>
+        </div>
+
+        <div class="faq-item">
+            <h3>Is my data backed up?</h3>
+            <p>Smart Todo stores all data locally on your device. Your data is included in your iCloud or iTunes backups if you have those enabled.</p>
+        </div>
+
+        <div class="faq-item">
+            <h3>How do I delete my account?</h3>
+            <p>Simply uninstall the app to remove all your data. You can also manage your Sign in with Apple credentials in iOS Settings → Apple ID → Password & Security → Apps Using Apple ID.</p>
+        </div>
+
+        <div class="contact-box">
+            <h2 style="margin-top: 0;">Need More Help?</h2>
+            <p>If you have questions or found a bug, please let us know!</p>
+            <a href="https://github.com/bksourabh/ios-smart-todo/issues">Report an Issue on GitHub</a>
+        </div>
+
+        <div class="back-link">
+            <a href="index.html">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>
