@@ -12,6 +12,7 @@ struct VoiceInputTaskView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var notificationManager: NotificationManager
+    @ObservedObject private var locationManager = LocationManager.shared
 
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \PointOfInterest.name, ascending: true)],
@@ -20,6 +21,10 @@ struct VoiceInputTaskView: View {
 
     @StateObject private var speechRecognizer = SpeechRecognizer()
     private let voiceParser = VoiceCommandParser()
+
+    private var isLocationNotificationsEnabled: Bool {
+        return locationManager.isLocationBasedNotificationsAvailable
+    }
 
     @State private var parsedCommand: ParsedTaskCommand?
     @State private var showingPreview = false
@@ -231,14 +236,38 @@ struct VoiceInputTaskView: View {
             }
 
             Section(header: Text("Notification Type")) {
-                Picker("Type", selection: $editedNotificationType) {
-                    Text("Time-based").tag("time")
-                    Text("Location-based").tag("location")
+                if isLocationNotificationsEnabled {
+                    Picker("Type", selection: $editedNotificationType) {
+                        Text("Time-based").tag("time")
+                        Text("Location-based").tag("location")
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Time-based")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Spacer()
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.blue)
+                        }
+                        .padding(.vertical, 4)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: "location.slash.fill")
+                                .foregroundColor(.orange)
+                                .font(.caption)
+                            Text("Location-based notifications require \"Always Allow\" location permission.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.top, 4)
+                    }
                 }
-                .pickerStyle(SegmentedPickerStyle())
             }
 
-            if editedNotificationType == "time" {
+            if editedNotificationType == "time" || !isLocationNotificationsEnabled {
                 Section(header: Text("Due Date")) {
                     DatePicker("Due Date", selection: $editedDueDate, in: Date().addingTimeInterval(5 * 60 + 1)..., displayedComponents: [.date, .hourAndMinute])
                 }
@@ -251,7 +280,7 @@ struct VoiceInputTaskView: View {
                         }
                     }
                 }
-            } else {
+            } else if isLocationNotificationsEnabled {
                 Section(header: Text("Location Settings")) {
                     Picker("Distance", selection: $editedLocationDistance) {
                         ForEach(1...50, id: \.self) { distance in
@@ -381,7 +410,9 @@ struct VoiceInputTaskView: View {
 
         // Populate editable fields
         editedTitle = command.title ?? ""
-        editedNotificationType = command.notificationType ?? "time"
+        // Only use location type if it's available
+        let detectedType = command.notificationType ?? "time"
+        editedNotificationType = (detectedType == "location" && !isLocationNotificationsEnabled) ? "time" : detectedType
 
         if let dueDate = command.dueDate {
             editedDueDate = dueDate
@@ -408,7 +439,10 @@ struct VoiceInputTaskView: View {
         // Validate
         guard !editedTitle.isEmpty else { return }
 
-        if editedNotificationType == "location" && selectedPOI == nil && !pointsOfInterest.isEmpty {
+        // Force time-based if location notifications are not available
+        let effectiveNotificationType = isLocationNotificationsEnabled ? editedNotificationType : "time"
+
+        if effectiveNotificationType == "location" && selectedPOI == nil && !pointsOfInterest.isEmpty {
             errorMessage = "Please select a location for location-based notification"
             return
         }
@@ -419,15 +453,15 @@ struct VoiceInputTaskView: View {
         newTask.createdAt = Date()
         newTask.isCompleted = false
         newTask.title = editedTitle
-        newTask.notificationType = editedNotificationType
+        newTask.notificationType = effectiveNotificationType
 
-        if editedNotificationType == "time" {
+        if effectiveNotificationType == "time" {
             newTask.dateType = "dueDate"
             newTask.dueDate = editedDueDate
             newTask.notificationMinutes = Int16(editedNotificationMinutes)
             newTask.locationNotificationDistance = 0
             newTask.notificationLocation = nil
-        } else {
+        } else if effectiveNotificationType == "location" {
             newTask.dateType = "location"
             newTask.dueDate = nil
             newTask.notificationMinutes = 0

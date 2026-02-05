@@ -8,6 +8,15 @@
 import Foundation
 import CoreLocation
 import Combine
+import CoreData
+import UIKit
+
+// MARK: - Region Entry Handler Protocol
+
+protocol RegionEntryDelegate: AnyObject {
+    func didEnterRegion(identifier: String)
+    func didExitRegion(identifier: String)
+}
 
 final class LocationManager: NSObject, ObservableObject {
     static let shared = LocationManager()
@@ -17,22 +26,110 @@ final class LocationManager: NSObject, ObservableObject {
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
     @Published var currentLocation: CLLocation?
     @Published var locationError: Error?
+    @Published var monitoredRegions: Set<CLRegion> = []
+
+    /// Returns true if location-based notifications are available (requires "Always Allow" permission)
+    var isLocationBasedNotificationsAvailable: Bool {
+        return authorizationStatus == .authorizedAlways
+    }
+
+    /// Returns true if basic location services are authorized (While Using or Always)
+    var isLocationAuthorized: Bool {
+        return authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
+    }
+
+    weak var regionDelegate: RegionEntryDelegate?
 
     private var locationContinuation: CheckedContinuation<CLLocation?, Error>?
     private var cachedLocation: CLLocation?
     private var lastLocationUpdate: Date?
     private let cacheValidityDuration: TimeInterval = 60 // Cache valid for 60 seconds
 
+    // Minimum region radius (iOS recommends at least 100m for reliable detection)
+    private let minimumRegionRadius: CLLocationDistance = 100
+
     override init() {
         super.init()
         locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters // Faster initial location
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.distanceFilter = 10 // Update every 10 meters
         authorizationStatus = locationManager.authorizationStatus
 
-        // Start monitoring location updates in background for faster access
+        // Only start basic location updates if authorized (not background)
+        // Background updates will be enabled explicitly when needed
         if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
             locationManager.startUpdatingLocation()
         }
+    }
+
+    // MARK: - Background Location Support
+    // Note: UNLocationNotificationTrigger handles background location automatically
+    // We don't need to manually enable allowsBackgroundLocationUpdates for notifications
+
+    // MARK: - Region Monitoring (Geofencing)
+
+    func startMonitoringRegion(identifier: String, center: CLLocationCoordinate2D, radius: CLLocationDistance) {
+        print("=== Starting Region Monitoring ===")
+        print("Region ID: \(identifier)")
+        print("Center: (\(center.latitude), \(center.longitude))")
+        print("Requested radius: \(radius)m")
+
+        guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
+            print("ERROR: Region monitoring not available on this device")
+            return
+        }
+
+        guard authorizationStatus == .authorizedAlways else {
+            print("ERROR: Always authorization required for region monitoring (current: \(authorizationStatus.rawValue))")
+            return
+        }
+
+        // Ensure radius is at least the minimum
+        let effectiveRadius = max(radius, minimumRegionRadius)
+        print("Effective radius: \(effectiveRadius)m")
+
+        let region = CLCircularRegion(
+            center: center,
+            radius: effectiveRadius,
+            identifier: identifier
+        )
+        region.notifyOnEntry = true
+        region.notifyOnExit = false
+
+        locationManager.startMonitoring(for: region)
+        monitoredRegions = Set(locationManager.monitoredRegions)
+        print("Total monitored regions: \(monitoredRegions.count)")
+
+        // Check if user is already in the region
+        print("Requesting current state for region...")
+        locationManager.requestState(for: region)
+
+        print("=== Region Monitoring Setup Complete ===")
+    }
+
+    func stopMonitoringRegion(identifier: String) {
+        for region in locationManager.monitoredRegions {
+            if region.identifier == identifier {
+                locationManager.stopMonitoring(for: region)
+                break
+            }
+        }
+        monitoredRegions = Set(locationManager.monitoredRegions)
+    }
+
+    func stopMonitoringAllRegions() {
+        for region in locationManager.monitoredRegions {
+            locationManager.stopMonitoring(for: region)
+        }
+        monitoredRegions = Set(locationManager.monitoredRegions)
+    }
+
+    func isMonitoringRegion(identifier: String) -> Bool {
+        return locationManager.monitoredRegions.contains { $0.identifier == identifier }
+    }
+
+    func getMonitoredRegionCount() -> Int {
+        return locationManager.monitoredRegions.count
     }
 
     func requestLocationPermission() async -> Bool {
@@ -40,8 +137,8 @@ final class LocationManager: NSObject, ObservableObject {
             return authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
         }
 
-        // Request "Always" permission to show both "While Using" and "Always" options
-        locationManager.requestAlwaysAuthorization()
+        // Request "When In Use" permission first (shows iOS system dialog)
+        locationManager.requestWhenInUseAuthorization()
 
         // Wait for authorization status to change
         return await withCheckedContinuation { continuation in
@@ -52,6 +149,29 @@ final class LocationManager: NSObject, ObservableObject {
                     cancellable?.cancel()
                     continuation.resume(returning: status == .authorizedWhenInUse || status == .authorizedAlways)
                 }
+        }
+    }
+
+    /// Request "When In Use" permission (Step 1 of two-step flow)
+    func requestWhenInUsePermission() {
+        guard authorizationStatus == .notDetermined else { return }
+        locationManager.requestWhenInUseAuthorization()
+    }
+
+    /// Request upgrade to "Always" permission (Step 2 of two-step flow)
+    /// This should be called after user has granted "When In Use" permission
+    func requestAlwaysPermissionUpgrade() {
+        if authorizationStatus == .authorizedWhenInUse {
+            // Request upgrade to "Always" - iOS will show the "Always Allow" prompt
+            locationManager.requestAlwaysAuthorization()
+        } else if authorizationStatus == .notDetermined {
+            // If not yet determined, request Always directly
+            locationManager.requestAlwaysAuthorization()
+        } else {
+            // Already have Always or permission denied - open Settings
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
         }
     }
 
@@ -140,10 +260,10 @@ extension LocationManager: CLLocationManagerDelegate {
             locationContinuation = nil
         }
     }
-    
+
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         locationError = error
-        
+
         // Map CLLocationManager errors to our custom error types
         let mappedError: Error
         if let clError = error as? CLError {
@@ -156,17 +276,61 @@ extension LocationManager: CLLocationManagerDelegate {
         } else {
             mappedError = error
         }
-        
+
         locationContinuation?.resume(throwing: mappedError)
         locationContinuation = nil
     }
-    
+
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         authorizationStatus = manager.authorizationStatus
-        // Start location updates when authorized
+
+        // Start basic location updates when authorized
+        // Background updates are enabled explicitly via enableBackgroundLocationUpdates()
         if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
             locationManager.startUpdatingLocation()
         }
+
+        // Update monitored regions set
+        monitoredRegions = Set(locationManager.monitoredRegions)
+    }
+
+    // MARK: - Region Monitoring Delegate Methods
+
+    func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+        print("Entered region: \(region.identifier)")
+        regionDelegate?.didEnterRegion(identifier: region.identifier)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        print("Exited region: \(region.identifier)")
+        regionDelegate?.didExitRegion(identifier: region.identifier)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
+        switch state {
+        case .inside:
+            print("Already inside region: \(region.identifier)")
+            // User is already at the location - trigger notification
+            regionDelegate?.didEnterRegion(identifier: region.identifier)
+        case .outside:
+            print("Outside region: \(region.identifier)")
+        case .unknown:
+            print("Unknown state for region: \(region.identifier)")
+        @unknown default:
+            break
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
+        print("Region monitoring failed: \(error.localizedDescription)")
+        if let region = region {
+            print("Failed region: \(region.identifier)")
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
+        print("Started monitoring region: \(region.identifier)")
+        monitoredRegions = Set(locationManager.monitoredRegions)
     }
 }
 

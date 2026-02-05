@@ -12,6 +12,7 @@ struct AddEditTaskView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var notificationManager: NotificationManager
+    @ObservedObject private var locationManager = LocationManager.shared
 
     var task: TodoTask?
 
@@ -32,6 +33,10 @@ struct AddEditTaskView: View {
     @State private var locationNotificationDistance: Int = 15
     @State private var selectedPOI: PointOfInterest?
     @State private var showingAddPOI = false
+
+    private var isLocationNotificationsEnabled: Bool {
+        return locationManager.isLocationBasedNotificationsAvailable
+    }
     
     private var isDueDateValid: Bool {
         // Due date validation only applies to time-based notifications
@@ -79,8 +84,8 @@ struct AddEditTaskView: View {
                     TextField("Task Title", text: $title)
                 }
 
-                // Only show Due Date section for time-based notifications
-                if notificationType == "time" {
+                // Only show Due Date section for time-based notifications (or when location is disabled)
+                if notificationType == "time" || !isLocationNotificationsEnabled {
                     Section(header: Text("Due Date"), footer: dueDateFooter) {
                         DatePicker("Due Date", selection: $dueDate, in: Date().addingTimeInterval(5 * 60 + 1)..., displayedComponents: [.date, .hourAndMinute])
                             .onChange(of: dueDate) { oldValue, newValue in
@@ -110,13 +115,47 @@ struct AddEditTaskView: View {
                 }
 
                 Section(header: Text("Notification"), footer: notificationType == "time" ? notificationFooter : nil) {
-                    Picker("Notification Type", selection: $notificationType) {
-                        Text("Time-based").tag("time")
-                        Text("Location-based").tag("location")
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
+                    if isLocationNotificationsEnabled {
+                        Picker("Notification Type", selection: $notificationType) {
+                            Text("Time-based").tag("time")
+                            Text("Location-based").tag("location")
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                    } else {
+                        // Location notifications disabled - show info
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Time-based")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Spacer()
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                            .padding(.vertical, 4)
 
-                    if notificationType == "time" {
+                            HStack(spacing: 8) {
+                                Image(systemName: "location.slash.fill")
+                                    .foregroundColor(.orange)
+                                    .font(.caption)
+                                Text("Location-based notifications require \"Always Allow\" location permission. Enable in Settings.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.top, 4)
+
+                            Button(action: openLocationSettings) {
+                                HStack {
+                                    Image(systemName: "gear")
+                                    Text("Open Settings")
+                                }
+                                .font(.caption)
+                            }
+                            .padding(.top, 4)
+                        }
+                    }
+
+                    if notificationType == "time" || !isLocationNotificationsEnabled {
                         Picker(selection: $notificationMinutes, label: Text(notificationMinutes == 0 ? "Notify me x minutes before" : "Notify me \(notificationMinutes) minute\(notificationMinutes == 1 ? "" : "s") before")) {
                             Text("No notification").tag(0)
                             ForEach(1...60, id: \.self) { minutes in
@@ -134,7 +173,7 @@ struct AddEditTaskView: View {
                                 showingNotificationPastError = false
                             }
                         }
-                    } else {
+                    } else if isLocationNotificationsEnabled {
                         // Location-based notification
                         Picker("Notification Distance", selection: $locationNotificationDistance) {
                             ForEach(1...50, id: \.self) { distance in
@@ -210,7 +249,9 @@ struct AddEditTaskView: View {
                     dueDate = taskDueDate <= fiveMinutesFromNow ? fiveMinutesFromNow.addingTimeInterval(1) : taskDueDate
                     notificationMinutes = Int(task.notificationMinutes)
                     // Load location notification fields
-                    notificationType = task.notificationType ?? "time"
+                    let savedNotificationType = task.notificationType ?? "time"
+                    // Only use location type if it's available
+                    notificationType = (savedNotificationType == "location" && !isLocationNotificationsEnabled) ? "time" : savedNotificationType
                     locationNotificationDistance = Int(task.locationNotificationDistance)
                     if locationNotificationDistance == 0 { locationNotificationDistance = 15 }
                     selectedPOI = task.notificationLocation
@@ -238,6 +279,12 @@ struct AddEditTaskView: View {
         }
     }
     
+    private func openLocationSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+    }
+
     private func saveTask() {
         withAnimation {
             // Clear previous error flags

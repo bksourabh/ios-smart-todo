@@ -14,11 +14,21 @@ import CoreLocation
 
 final class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
-    
+
     @Published var authorizationStatus: UNAuthorizationStatus = .notDetermined
-    
+    @Published var activeLocationTasks: [String: String] = [:] // taskId: taskTitle
+
+    private var managedObjectContext: NSManagedObjectContext?
+
     private init() {
         checkAuthorizationStatus()
+
+        // Set up as region delegate for LocationManager
+        LocationManager.shared.regionDelegate = self
+    }
+
+    func setManagedObjectContext(_ context: NSManagedObjectContext) {
+        self.managedObjectContext = context
     }
     
     func checkAuthorizationStatus() {
@@ -43,13 +53,17 @@ final class NotificationManager: ObservableObject {
     }
     
     func scheduleNotification(for task: TodoTask) {
+        print("scheduleNotification called for task: \(task.title ?? "unknown")")
+
         // Only schedule if notifications are authorized
         guard authorizationStatus == .authorized else {
+            print("Notification authorization not granted. Status: \(authorizationStatus.rawValue)")
             return
         }
 
         // Only schedule if task is not completed
         guard !task.isCompleted else {
+            print("Task is completed, cancelling notification")
             cancelNotification(for: task)
             return
         }
@@ -58,6 +72,7 @@ final class NotificationManager: ObservableObject {
         cancelNotification(for: task)
 
         let notificationType = task.notificationType ?? "time"
+        print("Notification type: \(notificationType)")
 
         if notificationType == "location" {
             scheduleLocationNotification(for: task)
@@ -122,50 +137,213 @@ final class NotificationManager: ObservableObject {
     }
 
     private func scheduleLocationNotification(for task: TodoTask) {
+        print("=== Scheduling Location Notification ===")
+
+        // Location notifications require "Always" authorization
+        let locationAuthStatus = LocationManager.shared.authorizationStatus
+        print("Location authorization status: \(locationAuthStatus.rawValue)")
+
+        guard LocationManager.shared.isLocationBasedNotificationsAvailable else {
+            print("Skipping location notification - Always authorization required (current: \(locationAuthStatus.rawValue))")
+            return
+        }
+
         // Check if location notification is configured
         guard let poi = task.notificationLocation else {
+            print("No POI configured for task")
             return
         }
 
         let distance = Int(task.locationNotificationDistance)
         guard distance > 0 else {
+            print("Invalid distance: \(distance)")
+            return
+        }
+
+        guard let taskId = task.id?.uuidString else {
+            print("No task ID")
             return
         }
 
         let notificationTitle = task.title ?? "Task Reminder"
         let locationName = poi.name ?? "the location"
 
+        print("Task: \(notificationTitle)")
+        print("Location: \(locationName) at (\(poi.latitude), \(poi.longitude))")
+        print("Distance: \(distance)m")
+
+        // Store task info for region delegate
+        activeLocationTasks[taskId] = notificationTitle
+
         // Create notification content
         let content = UNMutableNotificationContent()
         content.title = "Location Reminder"
-        content.body = "\(notificationTitle) - You are \(distance) metre\(distance == 1 ? "" : "s") away from \(locationName)"
+        content.body = "\(notificationTitle) - You are near \(locationName)"
         content.sound = .default
         content.badge = 1
+        content.userInfo = ["taskId": taskId, "locationName": locationName]
 
-        // Create location-based trigger
+        // Create location-based trigger with UNLocationNotificationTrigger
         let center = CLLocationCoordinate2D(latitude: poi.latitude, longitude: poi.longitude)
-        let region = CLCircularRegion(center: center, radius: CLLocationDistance(distance), identifier: task.id?.uuidString ?? UUID().uuidString)
+
+        // Use a reasonable minimum radius (iOS recommends at least 100m for reliable detection)
+        let effectiveRadius = max(CLLocationDistance(distance), 100)
+        print("Effective radius: \(effectiveRadius)m")
+
+        let region = CLCircularRegion(center: center, radius: effectiveRadius, identifier: taskId)
         region.notifyOnEntry = true
         region.notifyOnExit = false
 
         let trigger = UNLocationNotificationTrigger(region: region, repeats: false)
 
         // Create request with task ID as identifier
-        let identifier = task.id?.uuidString ?? UUID().uuidString
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        let request = UNNotificationRequest(identifier: taskId, content: content, trigger: trigger)
 
-        // Schedule the notification
+        // Schedule the notification via UNUserNotificationCenter
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Error scheduling location notification: \(error)")
+                print("ERROR scheduling location notification: \(error.localizedDescription)")
+            } else {
+                print("SUCCESS: Scheduled UNLocationNotificationTrigger for task: \(notificationTitle)")
             }
+        }
+
+        // Also set up region monitoring via LocationManager for more reliable detection
+        // This provides a backup mechanism and handles the case when user is already at location
+        let locationManager = LocationManager.shared
+        if locationManager.authorizationStatus == .authorizedAlways {
+            print("Setting up CLLocationManager region monitoring as backup...")
+            locationManager.startMonitoringRegion(
+                identifier: taskId,
+                center: center,
+                radius: effectiveRadius
+            )
+        } else {
+            print("Skipping CLLocationManager region monitoring - not Always authorized")
+        }
+
+        print("=== Location Notification Scheduling Complete ===")
+    }
+
+    func cancelLocationNotification(for task: TodoTask) {
+        guard let taskId = task.id?.uuidString else { return }
+
+        // Remove from active tasks
+        activeLocationTasks.removeValue(forKey: taskId)
+
+        // Cancel pending notification
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [taskId])
+
+        // Stop region monitoring
+        LocationManager.shared.stopMonitoringRegion(identifier: taskId)
+    }
+
+    // MARK: - Setup All Location-Based Task Monitoring
+
+    func setupLocationMonitoringForAllTasks(context: NSManagedObjectContext) {
+        // Location monitoring requires "Always" authorization
+        guard LocationManager.shared.isLocationBasedNotificationsAvailable else {
+            print("Skipping location monitoring setup - Always authorization required")
+            return
+        }
+
+        self.managedObjectContext = context
+
+        let fetchRequest: NSFetchRequest<TodoTask> = TodoTask.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "isCompleted == NO AND notificationType == %@", "location")
+
+        do {
+            let tasks = try context.fetch(fetchRequest)
+            print("Setting up location monitoring for \(tasks.count) location-based tasks")
+
+            for task in tasks {
+                if task.notificationLocation != nil && task.locationNotificationDistance > 0 {
+                    scheduleLocationNotification(for: task)
+                }
+            }
+        } catch {
+            print("Error fetching location-based tasks: \(error)")
+        }
+    }
+
+    // MARK: - Trigger Notification Manually (for region delegate)
+
+    func triggerLocationNotification(taskId: String) {
+        guard let context = managedObjectContext else {
+            print("No managed object context available for triggering notification")
+            return
+        }
+
+        guard let uuid = UUID(uuidString: taskId) else {
+            print("Invalid task ID format: \(taskId)")
+            return
+        }
+
+        let fetchRequest: NSFetchRequest<TodoTask> = TodoTask.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", uuid as CVarArg)
+
+        do {
+            let tasks = try context.fetch(fetchRequest)
+            guard let task = tasks.first, !task.isCompleted else {
+                print("Task not found or already completed: \(taskId)")
+                return
+            }
+
+            guard let poi = task.notificationLocation else {
+                return
+            }
+
+            let notificationTitle = task.title ?? "Task Reminder"
+            let locationName = poi.name ?? "the location"
+            let distance = Int(task.locationNotificationDistance)
+
+            // Create and deliver notification immediately
+            let content = UNMutableNotificationContent()
+            content.title = "Location Reminder"
+            content.body = "\(notificationTitle) - You are within \(distance) metre\(distance == 1 ? "" : "s") of \(locationName)"
+            content.sound = .default
+            content.badge = 1
+
+            // Immediate trigger
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+
+            let request = UNNotificationRequest(
+                identifier: "immediate-\(taskId)",
+                content: content,
+                trigger: trigger
+            )
+
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("Error triggering immediate notification: \(error)")
+                } else {
+                    print("Triggered location notification for: \(notificationTitle)")
+                }
+            }
+
+            // Stop monitoring this region after triggering (one-time notification)
+            LocationManager.shared.stopMonitoringRegion(identifier: taskId)
+            activeLocationTasks.removeValue(forKey: taskId)
+
+        } catch {
+            print("Error fetching task for notification: \(error)")
         }
     }
     
     func cancelNotification(for task: TodoTask) {
         guard let taskId = task.id else { return }
         let identifier = taskId.uuidString
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+
+        // Remove from active location tasks
+        activeLocationTasks.removeValue(forKey: identifier)
+
+        // Cancel pending notifications
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier, "immediate-\(identifier)"])
+
+        // Stop region monitoring if it's a location-based task
+        if task.notificationType == "location" {
+            LocationManager.shared.stopMonitoringRegion(identifier: identifier)
+        }
     }
     
     func scheduleNotificationsForTodayTasks(context: NSManagedObjectContext) {
@@ -221,6 +399,28 @@ final class NotificationManager: ObservableObject {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
         }
+    }
+}
+
+// MARK: - Region Entry Delegate
+
+extension NotificationManager: RegionEntryDelegate {
+    func didEnterRegion(identifier: String) {
+        print("NotificationManager: User entered region \(identifier)")
+
+        // Check if this is an active location task
+        guard activeLocationTasks[identifier] != nil else {
+            print("Region \(identifier) is not an active location task")
+            return
+        }
+
+        // Trigger notification for this task
+        triggerLocationNotification(taskId: identifier)
+    }
+
+    func didExitRegion(identifier: String) {
+        // We don't need to do anything on exit for now
+        print("NotificationManager: User exited region \(identifier)")
     }
 }
 

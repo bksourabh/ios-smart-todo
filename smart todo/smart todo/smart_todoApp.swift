@@ -9,6 +9,7 @@ import SwiftUI
 import CoreData
 import UIKit
 import Combine
+import CoreLocation
 
 @main
 struct smart_todoApp: App {
@@ -17,7 +18,7 @@ struct smart_todoApp: App {
     @StateObject private var notificationManager = NotificationManager.shared
     @StateObject private var authManager = AuthenticationManager.shared
     @StateObject private var tourManager = GuidedTourManager.shared
-    @StateObject private var locationManager = LocationManager()
+    @ObservedObject private var locationManager = LocationManager.shared
 
     var body: some Scene {
         WindowGroup {
@@ -60,8 +61,18 @@ struct smart_todoApp: App {
                             if notificationManager.authorizationStatus == .notDetermined {
                                 _ = await notificationManager.requestAuthorization()
                             }
-                            // Schedule notifications for today's tasks
+
+                            // Set up managed object context for NotificationManager
+                            notificationManager.setManagedObjectContext(persistenceController.container.viewContext)
+
+                            // Schedule time-based notifications
                             notificationManager.scheduleNotificationsForTodayTasks(context: persistenceController.container.viewContext)
+
+                            // Set up location monitoring for location-based tasks
+                            // Only if "Always" authorization is granted
+                            if LocationManager.shared.authorizationStatus == .authorizedAlways {
+                                notificationManager.setupLocationMonitoringForAllTasks(context: persistenceController.container.viewContext)
+                            }
 
                             // Start guided tour if not completed
                             if !tourManager.hasCompletedTour {
@@ -75,6 +86,15 @@ struct smart_todoApp: App {
                         // Reschedule notifications when app comes to foreground
                         notificationManager.checkAuthorizationStatus()
                         notificationManager.scheduleNotificationsForTodayTasks(context: persistenceController.container.viewContext)
+
+                        // Re-setup location monitoring only if "Always" authorized
+                        if LocationManager.shared.authorizationStatus == .authorizedAlways {
+                            notificationManager.setupLocationMonitoringForAllTasks(context: persistenceController.container.viewContext)
+                        }
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                        // Check and refresh location authorization
+                        LocationManager.shared.checkAuthorizationStatus()
                     }
             }
         } else {
