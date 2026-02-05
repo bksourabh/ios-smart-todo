@@ -13,6 +13,7 @@ struct AddEditTaskView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var notificationManager: NotificationManager
     @ObservedObject private var locationManager = LocationManager.shared
+    @FocusState private var isTitleFocused: Bool
 
     var task: TodoTask?
 
@@ -37,51 +38,75 @@ struct AddEditTaskView: View {
     private var isLocationNotificationsEnabled: Bool {
         return locationManager.isLocationBasedNotificationsAvailable
     }
-    
+
+    private var isEditing: Bool {
+        task != nil
+    }
+
     private var isDueDateValid: Bool {
-        // Due date validation only applies to time-based notifications
         guard notificationType == "time" else { return true }
         let now = Date()
         let fiveMinutesFromNow = now.addingTimeInterval(5 * 60)
-        // Due date must be strictly more than 5 minutes in the future
         return dueDate > fiveMinutesFromNow
     }
 
     private var isNotificationValid: Bool {
-        // Notification validation only applies to time-based notifications
         guard notificationType == "time" else { return true }
-        guard notificationMinutes > 0 else { return true } // 0 means no notification
+        guard notificationMinutes > 0 else { return true }
         let notificationDate = dueDate.addingTimeInterval(-Double(notificationMinutes) * 60)
         return notificationDate >= Date()
     }
 
     private var isLocationNotificationValid: Bool {
-        // Location notification requires a selected POI
         guard notificationType == "location" else { return true }
         return selectedPOI != nil
     }
-    
+
     @ViewBuilder
     private var dueDateFooter: some View {
         if showingDateTooSoonError {
-            Text("Due date must be at least 5 minutes from now").foregroundColor(.red)
+            Label("Due date must be at least 5 minutes from now", systemImage: "exclamationmark.circle.fill")
+                .font(.caption)
+                .foregroundColor(.red)
         } else if showingPastDateError {
-            Text("Due date cannot be in the past").foregroundColor(.red)
+            Label("Due date cannot be in the past", systemImage: "exclamationmark.circle.fill")
+                .font(.caption)
+                .foregroundColor(.red)
         }
     }
-    
+
     @ViewBuilder
     private var notificationFooter: some View {
         if showingNotificationPastError {
-            Text("Notification cannot be in the past. Please adjust the due date or notification time.").foregroundColor(.red)
+            Label("Notification time would be in the past", systemImage: "exclamationmark.circle.fill")
+                .font(.caption)
+                .foregroundColor(.red)
         }
     }
-    
+
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Task Details")) {
-                    TextField("Task Title", text: $title)
+                // Task Title Section
+                Section {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 2)
+                                .frame(width: 24, height: 24)
+                        }
+
+                        TextField("What do you need to do?", text: $title)
+                            .font(.system(size: 17))
+                            .focused($isTitleFocused)
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Task")
+                } footer: {
+                    if title.isEmpty {
+                        Text("Enter a descriptive title for your task")
+                    }
                 }
 
                 // Only show Due Date section for time-based notifications (or when location is disabled)
@@ -219,26 +244,37 @@ struct AddEditTaskView: View {
                     }
                 }
             }
-            .navigationTitle(task == nil ? "New Task" : "Edit Task")
+            .navigationTitle(isEditing ? "Edit Task" : "New Task")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    HStack(spacing: 12) {
-                        Button("Cancel") {
-                            dismiss()
-                        }
-                        HelpButton(screenType: .addEditTask)
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .foregroundColor(.secondary)
+                }
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 8) {
+                        Image(systemName: isEditing ? "pencil.circle.fill" : "plus.circle.fill")
+                            .foregroundColor(.blue)
+                        Text(isEditing ? "Edit Task" : "New Task")
+                            .fontWeight(.semibold)
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
+                    Button(action: {
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                        impactFeedback.impactOccurred()
                         saveTask()
+                    }) {
+                        Text("Save")
+                            .fontWeight(.semibold)
                     }
-                    // Disable Save when title is empty or current values are invalid
-                    .disabled(title.isEmpty || !isDueDateValid || !isNotificationValid || !isLocationNotificationValid)
+                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || !isDueDateValid || !isNotificationValid || !isLocationNotificationValid)
                 }
             }
             .onAppear {
+                isTitleFocused = task == nil
                 if let task = task {
                     title = task.title ?? ""
                     // Ensure due date is strictly more than 5 minutes in the future
@@ -352,12 +388,15 @@ struct AddEditTaskView: View {
 
             do {
                 try viewContext.save()
-                // Schedule notification
                 notificationManager.scheduleNotification(for: taskToSave)
+
+                let successFeedback = UINotificationFeedbackGenerator()
+                successFeedback.notificationOccurred(.success)
+
                 dismiss()
             } catch {
                 let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+                print("Error saving task: \(nsError), \(nsError.userInfo)")
             }
         }
     }

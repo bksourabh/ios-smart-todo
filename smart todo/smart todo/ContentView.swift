@@ -26,11 +26,20 @@ struct ContentView: View {
     @State private var selectedTask: TodoTask?
     @State private var showingPointOfInterestManager = false
     @State private var showingUserProfile = false
-    @State private var showingVoiceInput = false
     @State private var highlightFrames: [TourStep: CGRect] = [:]
+    @State private var showingDeleteAlert = false
+    @State private var taskToDelete: TodoTask?
 
     private var hasCompletedTasks: Bool {
         tasks.contains { $0.isCompleted }
+    }
+
+    private var completedTasksCount: Int {
+        tasks.filter { $0.isCompleted }.count
+    }
+
+    private var pendingTasksCount: Int {
+        tasks.filter { !$0.isCompleted }.count
     }
 
     private var userInitials: String {
@@ -43,87 +52,42 @@ struct ContentView: View {
         return "U"
     }
 
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour < 12 {
+            return "Good Morning"
+        } else if hour < 17 {
+            return "Good Afternoon"
+        } else {
+            return "Good Evening"
+        }
+    }
+
+    private var firstName: String {
+        authManager.userName.split(separator: " ").first.map(String.init) ?? "there"
+    }
+
     var body: some View {
         ZStack {
             NavigationView {
                 VStack(spacing: 0) {
                     if tasks.isEmpty {
-                        VStack(spacing: 20) {
-                            Image(systemName: "checklist")
-                                .font(.system(size: 60))
-                                .foregroundColor(.gray)
-                            Text("No tasks yet")
-                                .font(.title2)
-                                .foregroundColor(.gray)
-                            Text("Tap the + button to add your first task")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .tourHighlight(for: .taskList)
+                        emptyStateView
+                            .tourHighlight(for: .taskList)
                     } else {
-                        List {
-                            ForEach(tasks) { task in
-                                TaskRow(task: task) {
-                                    toggleTaskCompletion(task)
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    selectedTask = task
-                                    showingAddTask = true
-                                }
-                            }
-                            .onDelete(perform: deleteTasks)
-                        }
-                        .listStyle(PlainListStyle())
-                        .tourHighlight(for: .taskList)
+                        taskListView
+                            .tourHighlight(for: .taskList)
                     }
                 }
+                .background(Color(UIColor.systemGroupedBackground))
+                .navigationTitle("My Tasks")
+                .navigationBarTitleDisplayMode(.large)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
-                        HStack(spacing: 12) {
-                            // Profile button
-                            Button(action: {
-                                showingUserProfile = true
-                            }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.blue.opacity(0.15))
-                                        .frame(width: 32, height: 32)
-                                    Text(userInitials)
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(.blue)
-                                }
-                            }
-                            .tourHighlight(for: .profileButton)
-
-                            if hasCompletedTasks {
-                                Button(action: clearCompletedTasks) {
-                                    Text("Clear Completed")
-                                        .font(.subheadline)
-                                }
-                            }
-                        }
+                        profileButton
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack(spacing: 16) {
-                            HelpButton(screenType: .taskList)
-
-                            Button(action: {
-                                showingPointOfInterestManager = true
-                            }) {
-                                Image(systemName: "mappin.circle")
-                            }
-                            .tourHighlight(for: .locationButton)
-
-                            Button(action: {
-                                selectedTask = nil
-                                showingAddTask = true
-                            }) {
-                                Image(systemName: "plus")
-                            }
-                            .tourHighlight(for: .addTaskButton)
-                        }
+                        trailingToolbarItems
                     }
                 }
                 .sheet(isPresented: $showingAddTask) {
@@ -135,11 +99,15 @@ struct ContentView: View {
                 .sheet(isPresented: $showingUserProfile) {
                     UserProfileView(authManager: authManager)
                 }
-                .sheet(isPresented: $showingVoiceInput) {
-                    VoiceInputTaskView()
+                .alert("Clear Completed Tasks?", isPresented: $showingDeleteAlert) {
+                    Button("Cancel", role: .cancel) { }
+                    Button("Clear \(completedTasksCount)", role: .destructive) {
+                        clearCompletedTasks()
+                    }
+                } message: {
+                    Text("This will permanently remove \(completedTasksCount) completed task\(completedTasksCount == 1 ? "" : "s").")
                 }
                 .onAppear {
-                    // Reschedule notifications when view appears
                     notificationManager.scheduleNotificationsForTodayTasks(context: viewContext)
                 }
             }
@@ -147,74 +115,248 @@ struct ContentView: View {
                 highlightFrames = frames
             }
 
-            // Guided tour overlay
             GuidedTourOverlay(tourManager: tourManager, highlightFrames: highlightFrames)
+        }
+    }
 
-            // Floating voice input button
-            if !tourManager.isShowingTour {
-                VStack {
-                    Spacer()
+    // MARK: - Empty State View
+
+    private var emptyStateView: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.1))
+                    .frame(width: 120, height: 120)
+
+                Circle()
+                    .fill(Color.blue.opacity(0.15))
+                    .frame(width: 100, height: 100)
+
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 50, weight: .light))
+                    .foregroundColor(.blue)
+            }
+
+            VStack(spacing: 12) {
+                Text("All Clear!")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+
+                Text("You don't have any tasks yet.\nTap the + button to create your first task.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            }
+
+            Button(action: {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                impactFeedback.impactOccurred()
+                selectedTask = nil
+                showingAddTask = true
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 18))
+                    Text("Create Task")
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 14)
+                .background(Color.blue)
+                .cornerRadius(25)
+                .shadow(color: Color.blue.opacity(0.3), radius: 8, x: 0, y: 4)
+            }
+            .padding(.top, 8)
+
+            Spacer()
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Task List View
+
+    private var taskListView: some View {
+        List {
+            if hasCompletedTasks {
+                Section {
                     HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(pendingTasksCount) pending")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            Text("\(completedTasksCount) completed")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
                         Spacer()
-                        VoiceInputButton(showingVoiceInput: $showingVoiceInput)
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 24)
+
+                        Button(action: {
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                            impactFeedback.impactOccurred()
+                            showingDeleteAlert = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 12))
+                                Text("Clear Done")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(16)
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
+                    .padding(.vertical, 4)
+                }
+            }
+
+            Section {
+                ForEach(tasks) { task in
+                    TaskRow(task: task) {
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                        impactFeedback.impactOccurred()
+                        toggleTaskCompletion(task)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        let selectionFeedback = UISelectionFeedbackGenerator()
+                        selectionFeedback.selectionChanged()
+                        selectedTask = task
+                        showingAddTask = true
+                    }
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowSeparator(.hidden)
+                }
+                .onDelete(perform: deleteTasks)
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+    }
+
+    // MARK: - Profile Button
+
+    private var profileButton: some View {
+        Button(action: {
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+            showingUserProfile = true
+        }) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(
+                            colors: [Color.blue, Color.blue.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                        .frame(width: 36, height: 36)
+                    Text(userInitials)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
                 }
             }
         }
+        .tourHighlight(for: .profileButton)
+        .accessibilityLabel("User profile")
+        .accessibilityHint("Opens your account settings")
+    }
+
+    // MARK: - Trailing Toolbar Items
+
+    private var trailingToolbarItems: some View {
+        HStack(spacing: 16) {
+            HelpButton(screenType: .taskList)
+
+            Button(action: {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                impactFeedback.impactOccurred()
+                showingPointOfInterestManager = true
+            }) {
+                Image(systemName: "mappin.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.purple)
+            }
+            .tourHighlight(for: .locationButton)
+            .accessibilityLabel("Manage locations")
+            .accessibilityHint("Opens points of interest manager")
+
+            Button(action: {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                impactFeedback.impactOccurred()
+                selectedTask = nil
+                showingAddTask = true
+            }) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.blue)
+            }
+            .tourHighlight(for: .addTaskButton)
+            .accessibilityLabel("Add new task")
+            .accessibilityHint("Creates a new task")
+        }
     }
     
+    // MARK: - Actions
+
     private func toggleTaskCompletion(_ task: TodoTask) {
-        withAnimation {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             task.isCompleted.toggle()
-            
-            // Cancel notification if task is completed
+
             if task.isCompleted {
                 notificationManager.cancelNotification(for: task)
+                let successFeedback = UINotificationFeedbackGenerator()
+                successFeedback.notificationOccurred(.success)
             } else {
-                // Reschedule notification if task is uncompleted and due today
                 notificationManager.scheduleNotification(for: task)
             }
-            
-            do {
-                try viewContext.save()
-            } catch {
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
+
+            saveContext()
         }
     }
-    
+
     private func deleteTasks(offsets: IndexSet) {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+
         withAnimation {
             let tasksToDelete = offsets.map { tasks[$0] }
-            // Cancel notifications for deleted tasks
             tasksToDelete.forEach { notificationManager.cancelNotification(for: $0) }
             tasksToDelete.forEach(viewContext.delete)
-            
-            do {
-                try viewContext.save()
-            } catch {
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
+            saveContext()
         }
     }
-    
+
     private func clearCompletedTasks() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+
         withAnimation {
             let completedTasks = tasks.filter { $0.isCompleted }
-            // Cancel notifications for completed tasks being deleted
             completedTasks.forEach { notificationManager.cancelNotification(for: $0) }
             completedTasks.forEach { viewContext.delete($0) }
-            
-            do {
-                try viewContext.save()
-            } catch {
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
+            saveContext()
+        }
+    }
+
+    private func saveContext() {
+        do {
+            try viewContext.save()
+        } catch {
+            let nsError = error as NSError
+            print("Error saving context: \(nsError), \(nsError.userInfo)")
         }
     }
 }

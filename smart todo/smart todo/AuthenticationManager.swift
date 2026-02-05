@@ -212,55 +212,125 @@ struct SignInWithAppleButtonView: View {
 
 struct LoginView: View {
     @ObservedObject var authManager: AuthenticationManager
+    @State private var isAnimating = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
+        ZStack {
+            // Background gradient
+            LinearGradient(
+                colors: [
+                    Color.blue.opacity(0.05),
+                    Color(UIColor.systemBackground)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-            // App icon and title
-            VStack(spacing: 20) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 80))
-                    .foregroundColor(.blue)
+            VStack(spacing: 0) {
+                Spacer()
 
-                Text("Smart Todo")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                // App icon with animation
+                VStack(spacing: 28) {
+                    ZStack {
+                        // Animated circles
+                        Circle()
+                            .fill(Color.blue.opacity(0.1))
+                            .frame(width: 160, height: 160)
+                            .scaleEffect(isAnimating ? 1.1 : 1.0)
+                            .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: isAnimating)
 
-                Text("Organize your tasks with smart notifications")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-            }
+                        Circle()
+                            .fill(Color.blue.opacity(0.15))
+                            .frame(width: 130, height: 130)
 
-            Spacer()
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 70))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.blue, Color.blue.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
 
-            // Sign in section
-            VStack(spacing: 20) {
-                SignInWithAppleButtonView(authManager: authManager)
-                    .padding(.horizontal, 40)
+                    VStack(spacing: 12) {
+                        Text("Smart Todo")
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
 
-                if authManager.isLoading {
-                    ProgressView()
-                        .padding(.top, 10)
+                        Text("Intelligent task management with\nlocation & time-based reminders")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                    }
                 }
 
-                if let error = authManager.errorMessage {
-                    Text(error)
+                Spacer()
+
+                // Features preview
+                VStack(spacing: 16) {
+                    featureRow(icon: "bell.badge.fill", color: .orange, text: "Smart notifications")
+                    featureRow(icon: "location.fill", color: .purple, text: "Location-based alerts")
+                }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 32)
+
+                // Sign in section
+                VStack(spacing: 16) {
+                    SignInWithAppleButtonView(authManager: authManager)
+                        .frame(height: 54)
+                        .padding(.horizontal, 32)
+                        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+
+                    if authManager.isLoading {
+                        ProgressView()
+                            .padding(.top, 8)
+                    }
+
+                    if let error = authManager.errorMessage {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(.red)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                        .padding(.horizontal, 32)
+                    }
+
+                    Text("Your data is private and secure")
                         .font(.caption)
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 4)
                 }
-
-                Text("Sign in to sync your tasks across devices")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                .padding(.bottom, 50)
             }
-            .padding(.bottom, 60)
         }
-        .background(Color(UIColor.systemBackground))
+        .onAppear {
+            isAnimating = true
+        }
+    }
+
+    private func featureRow(icon: String, color: Color, text: String) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.12))
+                    .frame(width: 40, height: 40)
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(color)
+            }
+
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Spacer()
+        }
     }
 }
 
@@ -269,47 +339,150 @@ struct LoginView: View {
 struct UserProfileView: View {
     @ObservedObject var authManager: AuthenticationManager
     @Environment(\.dismiss) private var dismiss
+    @State private var showingSignOutAlert = false
+    @State private var showingSettings = false
+
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "v\(version) (\(build))"
+    }
 
     var body: some View {
         NavigationView {
             List {
+                // Profile Header
                 Section {
                     HStack(spacing: 16) {
                         ZStack {
                             Circle()
-                                .fill(Color.blue.opacity(0.15))
-                                .frame(width: 60, height: 60)
+                                .fill(LinearGradient(
+                                    colors: [Color.blue, Color.blue.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ))
+                                .frame(width: 70, height: 70)
+
                             Text(initials)
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.blue)
+                                .font(.system(size: 26, weight: .semibold))
+                                .foregroundColor(.white)
                         }
 
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             if !authManager.userName.isEmpty {
                                 Text(authManager.userName)
-                                    .font(.headline)
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                            } else {
+                                Text("Smart Todo User")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
                             }
+
                             if !authManager.userEmail.isEmpty {
                                 Text(authManager.userEmail)
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }
+
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.green)
+                                Text("Apple ID verified")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.top, 2)
                         }
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 12)
                 }
 
+                // Settings Section
                 Section {
-                    Button(role: .destructive) {
-                        authManager.signOut()
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                            Text("Sign Out")
+                    NavigationLink(destination: SettingsView()) {
+                        Label {
+                            Text("Notifications")
+                        } icon: {
+                            Image(systemName: "bell.badge.fill")
+                                .foregroundColor(.orange)
                         }
                     }
+
+                    Button(action: {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }) {
+                        Label {
+                            HStack {
+                                Text("Location Settings")
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "location.fill")
+                                .foregroundColor(.purple)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                } header: {
+                    Text("Settings")
+                }
+
+                // Support Section
+                Section {
+                    Link(destination: URL(string: "https://github.com/anthropics/claude-code/issues")!) {
+                        Label {
+                            HStack {
+                                Text("Send Feedback")
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "envelope.fill")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .foregroundColor(.primary)
+
+                    Label {
+                        HStack {
+                            Text("App Version")
+                            Spacer()
+                            Text(appVersion)
+                                .foregroundColor(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.gray)
+                    }
+                } header: {
+                    Text("About")
+                }
+
+                // Sign Out Section
+                Section {
+                    Button(action: {
+                        showingSignOutAlert = true
+                    }) {
+                        HStack {
+                            Spacer()
+                            Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                                .foregroundColor(.red)
+                            Spacer()
+                        }
+                    }
+                } footer: {
+                    Text("Made with care for productivity enthusiasts")
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 20)
                 }
             }
             .navigationTitle("Account")
@@ -319,7 +492,17 @@ struct UserProfileView: View {
                     Button("Done") {
                         dismiss()
                     }
+                    .fontWeight(.semibold)
                 }
+            }
+            .alert("Sign Out?", isPresented: $showingSignOutAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Sign Out", role: .destructive) {
+                    authManager.signOut()
+                    dismiss()
+                }
+            } message: {
+                Text("You will need to sign in again to access your tasks.")
             }
         }
     }

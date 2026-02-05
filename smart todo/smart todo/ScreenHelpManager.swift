@@ -43,12 +43,6 @@ struct ScreenHelpContent {
                         iconColor: .green
                     ),
                     HelpStep(
-                        title: "Voice Input",
-                        description: "Tap the microphone button to add tasks using your voice. Speak naturally - say things like \"Remind me to buy milk tomorrow at 5pm\".",
-                        icon: "mic.fill",
-                        iconColor: .red
-                    ),
-                    HelpStep(
                         title: "Complete a Task",
                         description: "Tap the circle next to a task to mark it as complete. Completed tasks will show a checkmark.",
                         icon: "checkmark.circle.fill",

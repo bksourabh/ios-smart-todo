@@ -1,0 +1,56 @@
+APP NAME: Smart Todo
+
+SUBTITLE: Task Manager with Smart Reminders
+
+DESCRIPTION:
+Smart Todo helps you stay organized with intelligent task management and powerful reminder features.
+
+KEY FEATURES:
+
+• Smart Notifications
+Get reminded at the perfect time. Set custom notification intervals from 1-60 minutes before your tasks are due.
+
+• Location-Based Reminders
+Never forget to pick up groceries or stop by the pharmacy. Save your favorite places and get notified when you're nearby.
+
+• Beautiful, Intuitive Design
+A clean, modern interface that makes managing tasks a pleasure. Mark tasks complete with a tap, swipe to delete, and stay focused on what matters.
+
+• Points of Interest
+Discover and save nearby stores, pharmacies, and gas stations. Smart Todo finds useful locations around you automatically.
+
+• Privacy First
+All your data stays on your device. We don't collect or share your personal information.
+
+• Sign in with Apple
+Secure, private authentication with your Apple ID. No passwords to remember.
+
+Whether you're managing daily errands, work tasks, or personal goals, Smart Todo adapts to your lifestyle with smart, context-aware reminders.
+
+Download Smart Todo today and never miss an important task again!
+
+---
+
+KEYWORDS (100 characters max):
+task,todo,reminder,notification,location,productivity,checklist,organizer,planner,errands
+
+WHAT'S NEW IN THIS VERSION:
+• Initial release
+• Time-based task reminders
+• Location-based notifications
+• Points of Interest discovery
+• Sign in with Apple authentication
+• Beautiful onboarding experience
+
+SUPPORT URL: [Your URL]
+
+PRIVACY POLICY URL: [Your Privacy Policy URL]
+
+---
+
+CATEGORY: Productivity
+SECONDARY CATEGORY: Utilities
+
+AGE RATING: 4+
+
+COPYRIGHT: © 2026 [Your Name or Company]

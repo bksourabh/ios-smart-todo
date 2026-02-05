@@ -57,17 +57,6 @@ struct OnboardingView: View {
                 FeatureItem(icon: "location.magnifyingglass", text: "Discover nearby places"),
                 FeatureItem(icon: "bell.and.waves.left.and.right", text: "Proximity notifications")
             ]
-        ),
-        OnboardingPage(
-            icon: "mic.fill",
-            iconColor: .red,
-            title: "Voice Input",
-            subtitle: "Add tasks hands-free using your voice. Just speak naturally and we'll understand.",
-            features: [
-                FeatureItem(icon: "waveform", text: "Natural language processing"),
-                FeatureItem(icon: "text.bubble", text: "Automatic task parsing"),
-                FeatureItem(icon: "sparkles", text: "Smart date detection")
-            ]
         )
     ]
 

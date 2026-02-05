@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import UIKit
 
 // MARK: - Tour Step Definition
 
@@ -233,24 +234,63 @@ struct TourBackgroundMask: View {
     let step: TourStep
     let highlightFrame: CGRect?
 
+    private var shouldShowHighlight: Bool {
+        switch step {
+        case .welcome, .complete:
+            return false
+        default:
+            return highlightFrame != nil
+        }
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 // Dark overlay
-                Color.black.opacity(0.7)
+                Color.black.opacity(0.75)
 
-                // Highlight cutout (if not center-focused step)
-                if let frame = highlightFrame, step.highlightAnchor != .center {
-                    Rectangle()
+                // Highlight cutout with rounded corners
+                if shouldShowHighlight, let frame = highlightFrame {
+                    // Rounded rectangle cutout for the highlighted element
+                    RoundedRectangle(cornerRadius: 12)
                         .fill(Color.white)
-                        .frame(width: frame.width + 20, height: frame.height + 20)
+                        .frame(width: frame.width + 16, height: frame.height + 16)
                         .position(x: frame.midX, y: frame.midY)
                         .blendMode(.destinationOut)
+
+                    // Glowing border around highlighted element
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(step.iconColor, lineWidth: 3)
+                        .frame(width: frame.width + 16, height: frame.height + 16)
+                        .position(x: frame.midX, y: frame.midY)
+                        .shadow(color: step.iconColor.opacity(0.5), radius: 8)
+
+                    // Pulsing ring animation
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(step.iconColor.opacity(0.4), lineWidth: 2)
+                        .frame(width: frame.width + 24, height: frame.height + 24)
+                        .position(x: frame.midX, y: frame.midY)
+                        .modifier(PulseAnimation())
                 }
             }
             .compositingGroup()
         }
         .allowsHitTesting(false)
+    }
+}
+
+// Pulse animation modifier for the highlight ring
+struct PulseAnimation: ViewModifier {
+    @State private var isPulsing = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPulsing ? 1.15 : 1.0)
+            .opacity(isPulsing ? 0 : 0.6)
+            .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: false), value: isPulsing)
+            .onAppear {
+                isPulsing = true
+            }
     }
 }
 
@@ -263,134 +303,215 @@ struct TourTooltipCard: View {
     let isFirstStep: Bool
     let isLastStep: Bool
 
-    @State private var cardOffset: CGFloat = 50
+    @State private var cardOffset: CGFloat = 30
     @State private var cardOpacity: Double = 0
+
+    // Tooltip position based on step type - ALWAYS consistent
+    private var tooltipPosition: TooltipPosition {
+        switch step {
+        case .welcome, .complete:
+            // Center-focused steps: show tooltip in center
+            return .center
+        case .addTaskButton, .locationButton, .profileButton:
+            // Toolbar buttons at top: ALWAYS show tooltip below (in upper-middle area)
+            return .belowHighlight
+        case .taskList:
+            // Task list area: show tooltip at bottom
+            return .bottom
+        }
+    }
+
+    private enum TooltipPosition {
+        case center
+        case belowHighlight
+        case bottom
+    }
 
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                if shouldShowAbove(in: geometry) {
-                    Spacer()
-                }
+            let safeAreaBottom = geometry.safeAreaInsets.bottom
 
-                tooltipContent
-                    .padding(24)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color(UIColor.systemBackground))
-                            .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
-                    )
-                    .padding(.horizontal, 24)
-                    .offset(y: cardOffset)
-                    .opacity(cardOpacity)
+            ZStack {
+                VStack {
+                    switch tooltipPosition {
+                    case .center:
+                        Spacer()
+                        tooltipCard
+                        Spacer()
 
-                if !shouldShowAbove(in: geometry) {
-                    Spacer()
+                    case .belowHighlight:
+                        // Position below the toolbar with consistent spacing
+                        Spacer()
+                            .frame(height: max(120, (highlightFrame?.maxY ?? 100) + 20))
+                        tooltipCard
+                        Spacer()
+
+                    case .bottom:
+                        Spacer()
+                        tooltipCard
+                            .padding(.bottom, safeAreaBottom + 100)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onAppear {
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                    cardOffset = 0
-                    cardOpacity = 1
-                }
+                animateIn()
             }
             .onChange(of: step) { _, _ in
-                cardOffset = 50
-                cardOpacity = 0
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1)) {
-                    cardOffset = 0
-                    cardOpacity = 1
+                animateOut()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    animateIn()
                 }
             }
         }
     }
 
-    private func shouldShowAbove(in geometry: GeometryProxy) -> Bool {
-        if let frame = highlightFrame {
-            return frame.midY < geometry.size.height / 2
+    private func animateIn() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            cardOffset = 0
+            cardOpacity = 1
         }
-        return false
     }
 
-    private var tooltipContent: some View {
+    private func animateOut() {
+        cardOffset = 30
+        cardOpacity = 0
+    }
+
+    private var tooltipCard: some View {
         VStack(spacing: 20) {
-            // Icon
+            // Icon with animated ring
             ZStack {
                 Circle()
+                    .fill(step.iconColor.opacity(0.1))
+                    .frame(width: 80, height: 80)
+
+                Circle()
                     .fill(step.iconColor.opacity(0.15))
-                    .frame(width: 70, height: 70)
+                    .frame(width: 64, height: 64)
+
                 Image(systemName: step.icon)
-                    .font(.system(size: 30))
+                    .font(.system(size: 28, weight: .medium))
                     .foregroundColor(step.iconColor)
             }
 
             // Title and description
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 Text(step.title)
                     .font(.title3)
                     .fontWeight(.bold)
+                    .foregroundColor(.primary)
 
                 Text(step.description)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            // Progress dots
-            HStack(spacing: 6) {
-                ForEach(TourStep.allCases, id: \.rawValue) { tourStep in
-                    Circle()
-                        .fill(tourStep == step ? step.iconColor : Color.gray.opacity(0.3))
-                        .frame(width: 8, height: 8)
+            // Progress indicator
+            progressIndicator
+
+            // Action buttons
+            actionButtons
+        }
+        .padding(28)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color(UIColor.systemBackground))
+                .shadow(color: Color.black.opacity(0.15), radius: 24, x: 0, y: 12)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
+        .offset(y: cardOffset)
+        .opacity(cardOpacity)
+    }
+
+    private var progressIndicator: some View {
+        HStack(spacing: 8) {
+            ForEach(TourStep.allCases, id: \.rawValue) { tourStep in
+                Capsule()
+                    .fill(tourStep == step ? step.iconColor : Color.gray.opacity(0.2))
+                    .frame(width: tourStep == step ? 24 : 8, height: 8)
+                    .animation(.spring(response: 0.3), value: step)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 12) {
+            // Back button (not on first or last step)
+            if !isFirstStep && !isLastStep {
+                Button(action: {
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                    impactFeedback.impactOccurred()
+                    onPrevious()
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Back")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 12)
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .cornerRadius(12)
                 }
             }
 
-            // Buttons
-            HStack(spacing: 12) {
-                if !isFirstStep && !isLastStep {
-                    Button(action: onPrevious) {
-                        HStack {
-                            Image(systemName: "chevron.left")
-                            Text("Back")
-                        }
+            // Skip button (only on first step)
+            if isFirstStep {
+                Button(action: {
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                    impactFeedback.impactOccurred()
+                    onSkip()
+                }) {
+                    Text("Skip")
                         .font(.subheadline)
+                        .fontWeight(.medium)
                         .foregroundColor(.secondary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(10)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 12)
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .cornerRadius(12)
+                }
+            }
+
+            Spacer()
+
+            // Next/Finish button
+            Button(action: {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                impactFeedback.impactOccurred()
+                if isLastStep {
+                    onSkip()
+                } else {
+                    onNext()
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Text(isLastStep ? "Get Started" : "Next")
+                    if !isLastStep {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
                     }
                 }
-
-                if !isLastStep && isFirstStep {
-                    Button(action: onSkip) {
-                        Text("Skip Tour")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(10)
-                    }
-                }
-
-                Spacer()
-
-                Button(action: isLastStep ? onSkip : onNext) {
-                    HStack {
-                        Text(isLastStep ? "Get Started" : "Next")
-                        if !isLastStep {
-                            Image(systemName: "chevron.right")
-                        }
-                    }
-                    .font(.subheadline.bold())
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(step.iconColor)
-                    .cornerRadius(10)
-                }
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 12)
+                .background(step.iconColor)
+                .cornerRadius(12)
+                .shadow(color: step.iconColor.opacity(0.3), radius: 6, x: 0, y: 3)
             }
         }
     }

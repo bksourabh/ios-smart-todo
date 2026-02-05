@@ -259,14 +259,17 @@ struct PointOfInterestManagerView: View {
     }
     
     private func deletePointsOfInterest(offsets: IndexSet) {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+
         withAnimation {
             offsets.map { pointsOfInterest[$0] }.forEach(viewContext.delete)
-            
+
             do {
                 try viewContext.save()
             } catch {
                 let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+                print("Error deleting POI: \(nsError), \(nsError.userInfo)")
             }
         }
     }
@@ -610,10 +613,14 @@ struct AddEditPointOfInterestView: View {
             
             do {
                 try viewContext.save()
+
+                let successFeedback = UINotificationFeedbackGenerator()
+                successFeedback.notificationOccurred(.success)
+
                 dismiss()
             } catch {
                 let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+                print("Error saving POI: \(nsError), \(nsError.userInfo)")
             }
         }
     }
