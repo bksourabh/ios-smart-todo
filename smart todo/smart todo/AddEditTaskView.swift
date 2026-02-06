@@ -38,6 +38,7 @@ struct AddEditTaskView: View {
     // Smart notification state
     @State private var detectedCategories: [LocationCategory] = []
     @State private var matchingPOIs: [PointOfInterest] = []
+    @State private var isAnalyzing: Bool = false
 
     private var isLocationNotificationsEnabled: Bool {
         return locationManager.isLocationBasedNotificationsAvailable
@@ -477,9 +478,20 @@ struct AddEditTaskView: View {
                 Image(systemName: "wand.and.stars")
                     .foregroundColor(.purple)
                     .font(.caption)
-                Text("Smart mode analyzes your task and automatically notifies you when near relevant locations.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Smart mode analyzes your task and automatically notifies you when near relevant locations.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if SmartTaskAnalyzer.shared.isAppleIntelligenceAvailable {
+                        HStack(spacing: 4) {
+                            Image(systemName: "apple.intelligence")
+                                .font(.system(size: 10))
+                            Text("Powered by Apple Intelligence")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundColor(.purple)
+                    }
+                }
             }
             .padding(.vertical, 4)
 
@@ -544,6 +556,14 @@ struct AddEditTaskView: View {
                     .padding(.horizontal, 8)
                     .background(Color.green.opacity(0.1))
                     .cornerRadius(8)
+                } else if isAnalyzing {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                        Text("Analyzing task...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: "questionmark.circle")
@@ -574,17 +594,33 @@ struct AddEditTaskView: View {
         guard !trimmedTitle.isEmpty else {
             detectedCategories = []
             matchingPOIs = []
+            isAnalyzing = false
             return
         }
 
-        // Analyze the task title to detect categories
-        detectedCategories = TaskCategoryAnalyzer.analyzeTask(title: trimmedTitle)
-
-        // Find matching POIs for detected categories
-        if !detectedCategories.isEmpty {
-            matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: detectedCategories, in: viewContext)
+        // Use async analysis if Apple Intelligence is available
+        if SmartTaskAnalyzer.shared.isAppleIntelligenceAvailable {
+            isAnalyzing = true
+            Task {
+                let categories = await SmartTaskAnalyzer.shared.analyzeTaskAllCategories(title: trimmedTitle)
+                await MainActor.run {
+                    detectedCategories = categories
+                    if !detectedCategories.isEmpty {
+                        matchingPOIs = SmartTaskAnalyzer.shared.findMatchingPOIs(for: detectedCategories, in: viewContext)
+                    } else {
+                        matchingPOIs = []
+                    }
+                    isAnalyzing = false
+                }
+            }
         } else {
-            matchingPOIs = []
+            // Synchronous keyword-based analysis
+            detectedCategories = TaskCategoryAnalyzer.analyzeTask(title: trimmedTitle)
+            if !detectedCategories.isEmpty {
+                matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: detectedCategories, in: viewContext)
+            } else {
+                matchingPOIs = []
+            }
         }
     }
 }

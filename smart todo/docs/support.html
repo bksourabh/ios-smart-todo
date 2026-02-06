@@ -56,6 +56,10 @@
             border-radius: 12px;
             margin-bottom: 15px;
         }
+        .faq-item.featured {
+            background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
+            border: 1px solid #667eea30;
+        }
         .faq-item h3 {
             color: #333;
             font-size: 16px;
@@ -64,6 +68,16 @@
         .faq-item p {
             margin-bottom: 0;
             font-size: 14px;
+        }
+        .new-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+            vertical-align: middle;
         }
         .contact-box {
             background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
@@ -104,7 +118,24 @@
             <p>Smart Todo App</p>
         </div>
 
-        <h2>Frequently Asked Questions</h2>
+        <h2>Apple Intelligence</h2>
+
+        <div class="faq-item featured">
+            <h3>What is Apple Intelligence in Smart Todo? <span class="new-badge">NEW</span></h3>
+            <p>On supported devices (iPhone 15 Pro and later with iOS 26+), Smart Todo uses Apple's on-device AI to understand your tasks with natural language processing. This means you can type tasks like "Pick up mom's heart medication" and the app will intelligently recognize this relates to pharmacies, even without explicit keywords.</p>
+        </div>
+
+        <div class="faq-item featured">
+            <h3>Which devices support Apple Intelligence?</h3>
+            <p>Apple Intelligence requires iPhone 15 Pro or later, iPad with M1 chip or later, or Mac with M1 chip or later, running iOS 26 / iPadOS 26 / macOS 26 or later. On older devices, Smart Todo automatically uses keyword-based matching which still works great for most tasks.</p>
+        </div>
+
+        <div class="faq-item featured">
+            <h3>Is my data sent to Apple's servers for AI processing?</h3>
+            <p>No. All Apple Intelligence processing happens entirely on your device. Your tasks, locations, and personal data never leave your device for AI analysis. This is one of the key privacy benefits of Apple Intelligence.</p>
+        </div>
+
+        <h2>Smart Auto-Location</h2>
 
         <div class="faq-item">
             <h3>How does Smart Auto-Location work?</h3>
@@ -115,6 +146,8 @@
             <h3>What categories does Smart Auto-Location support?</h3>
             <p>Smart Todo recognizes many categories including: Pharmacies (medicines, prescriptions), Fuel Stations (petrol, gas), Supermarkets (groceries, shopping), Restaurants, Banks, Post Offices, Hardware Stores, Electronics Stores, and Clothing Stores.</p>
         </div>
+
+        <h2>Location & Notifications</h2>
 
         <div class="faq-item">
             <h3>How do I enable location-based reminders?</h3>
@@ -130,6 +163,8 @@
             <h3>How do I add a point of interest?</h3>
             <p>Tap the location pin icon in the top navigation bar. You can either use Suggestions to find nearby places, or tap the + button to manually add a location.</p>
         </div>
+
+        <h2>Data & Privacy</h2>
 
         <div class="faq-item">
             <h3>Is my data backed up?</h3>

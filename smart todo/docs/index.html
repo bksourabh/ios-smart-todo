@@ -35,14 +35,29 @@
         .tagline {
             font-size: 22px;
             opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        .apple-intelligence-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
             margin-bottom: 40px;
+        }
+        .apple-intelligence-badge svg {
+            width: 20px;
+            height: 20px;
         }
         .features {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
             gap: 20px;
-            max-width: 900px;
+            max-width: 1100px;
             margin: 0 auto 50px auto;
             padding: 0 20px;
         }
@@ -53,6 +68,10 @@
             padding: 25px;
             width: 260px;
             text-align: center;
+        }
+        .feature.featured {
+            background: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.15) 100%);
+            border: 1px solid rgba(255,255,255,0.3);
         }
         .feature-icon {
             font-size: 36px;
@@ -65,6 +84,16 @@
         .feature p {
             font-size: 14px;
             opacity: 0.85;
+        }
+        .feature .new-badge {
+            display: inline-block;
+            background: #ff6b6b;
+            color: white;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+            vertical-align: middle;
         }
         .app-store-badge {
             margin-top: 30px;
@@ -106,7 +135,19 @@
         <h1>Smart Todo</h1>
         <p class="tagline">AI-Powered Task Reminders That Know Where You Need To Be</p>
 
+        <div class="apple-intelligence-badge">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Powered by Apple Intelligence
+        </div>
+
         <div class="features">
+            <div class="feature featured">
+                <div class="feature-icon">🤖</div>
+                <h3>Apple Intelligence <span class="new-badge">NEW</span></h3>
+                <p>On-device AI understands your tasks naturally. "Pick up mom's heart pills" automatically maps to pharmacies.</p>
+            </div>
             <div class="feature">
                 <div class="feature-icon">✨</div>
                 <h3>Smart Auto-Location</h3>
@@ -125,7 +166,7 @@
             <div class="feature">
                 <div class="feature-icon">🔒</div>
                 <h3>Privacy First</h3>
-                <p>All data stays on your device - we never collect it</p>
+                <p>All data and AI processing stays on your device - nothing is sent to servers</p>
             </div>
         </div>
 
