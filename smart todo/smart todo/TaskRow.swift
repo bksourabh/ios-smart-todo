@@ -16,6 +16,10 @@ struct TaskRow: View {
         task.notificationType == "location"
     }
 
+    private var isSmartBased: Bool {
+        task.notificationType == "smart"
+    }
+
     private var cardBackgroundColor: Color {
         if task.isCompleted {
             return Color(UIColor.secondarySystemBackground)
@@ -57,7 +61,9 @@ struct TaskRow: View {
                     .foregroundColor(task.isCompleted ? .secondary : .primary)
                     .lineLimit(2)
 
-                if isLocationBased {
+                if isSmartBased {
+                    smartNotificationInfo
+                } else if isLocationBased {
                     locationNotificationInfo
                 } else if let dueDate = task.dueDate {
                     timeBasedNotificationInfo(dueDate: dueDate)
@@ -86,7 +92,20 @@ struct TaskRow: View {
 
     @ViewBuilder
     private var notificationTypeIndicator: some View {
-        if isLocationBased {
+        if isSmartBased {
+            Image(systemName: "wand.and.stars")
+                .font(.system(size: 14))
+                .foregroundColor(.purple)
+                .padding(8)
+                .background(
+                    LinearGradient(
+                        colors: [Color.purple.opacity(0.15), Color.blue.opacity(0.15)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(Circle())
+        } else if isLocationBased {
             Image(systemName: "location.fill")
                 .font(.system(size: 14))
                 .foregroundColor(.purple)
@@ -100,6 +119,31 @@ struct TaskRow: View {
                 .padding(8)
                 .background(Color.orange.opacity(0.1))
                 .clipShape(Circle())
+        }
+    }
+
+    // MARK: - Smart Notification Info
+
+    @ViewBuilder
+    private var smartNotificationInfo: some View {
+        let distance = Int(task.locationNotificationDistance)
+        let categoryName: String = {
+            if let categoryRawValue = task.smartLocationCategory,
+               let category = LocationCategory(rawValue: categoryRawValue) {
+                return category.displayName
+            }
+            return "nearby locations"
+        }()
+
+        HStack(spacing: 6) {
+            Image(systemName: "wand.and.stars")
+                .font(.system(size: 12))
+                .foregroundColor(.purple)
+
+            Text("When \(distance)m from \(categoryName)")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
         }
     }
 
@@ -166,7 +210,6 @@ struct TaskRow: View {
 
     private func formatRelativeDate(_ date: Date) -> String {
         let calendar = Calendar.current
-        let now = Date()
 
         if calendar.isDateInToday(date) {
             let formatter = DateFormatter()
@@ -193,7 +236,7 @@ struct TaskRow: View {
     }
 
     private func isOverdue() -> Bool {
-        guard !isLocationBased else { return false }
+        guard !isLocationBased && !isSmartBased else { return false }
         if let dueDate = task.dueDate {
             return isOverdue(dueDate)
         }

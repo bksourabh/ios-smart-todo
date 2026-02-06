@@ -71,12 +71,24 @@ final class NotificationManager: ObservableObject {
         // Cancel existing notification for this task
         cancelNotification(for: task)
 
-        let notificationType = task.notificationType ?? "time"
+        let notificationType = task.notificationType ?? "smart"
         print("Notification type: \(notificationType)")
 
-        if notificationType == "location" {
+        switch notificationType {
+        case "location":
             scheduleLocationNotification(for: task)
-        } else {
+        case "smart":
+            // Smart notifications are scheduled separately with matching POIs
+            // This is called when re-scheduling existing smart tasks
+            if let context = managedObjectContext,
+               let categoryRawValue = task.smartLocationCategory,
+               let category = LocationCategory(rawValue: categoryRawValue) {
+                let matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: [category], in: context)
+                if !matchingPOIs.isEmpty {
+                    scheduleSmartNotifications(for: task, matchingPOIs: matchingPOIs)
+                }
+            }
+        default:
             scheduleTimeNotification(for: task)
         }
     }
@@ -238,6 +250,120 @@ final class NotificationManager: ObservableObject {
         LocationManager.shared.stopMonitoringRegion(identifier: taskId)
     }
 
+    // MARK: - Smart Notifications (Multiple POIs)
+
+    /// Schedules location notifications for multiple POIs based on smart analysis
+    func scheduleSmartNotifications(for task: TodoTask, matchingPOIs: [PointOfInterest]) {
+        print("=== Scheduling Smart Notifications ===")
+        print("Task: \(task.title ?? "unknown")")
+        print("Matching POIs: \(matchingPOIs.count)")
+
+        // Location notifications require "Always" authorization
+        guard LocationManager.shared.isLocationBasedNotificationsAvailable else {
+            print("Skipping smart notifications - Always authorization required")
+            return
+        }
+
+        guard let taskId = task.id?.uuidString else {
+            print("No task ID")
+            return
+        }
+
+        // Cancel any existing notifications for this task
+        cancelSmartNotifications(for: task)
+
+        let notificationTitle = task.title ?? "Task Reminder"
+        let distance = Int(task.locationNotificationDistance)
+        let effectiveRadius = max(CLLocationDistance(distance > 0 ? distance : 15), 100)
+
+        // Get the category display name for the notification
+        let categoryName: String
+        if let categoryRawValue = task.smartLocationCategory,
+           let category = LocationCategory(rawValue: categoryRawValue) {
+            categoryName = category.displayName
+        } else {
+            categoryName = "saved locations"
+        }
+
+        // Store task info for region delegate
+        activeLocationTasks[taskId] = notificationTitle
+
+        // Limit to a reasonable number of POIs (iOS has a limit of ~20 monitored regions)
+        let poisToMonitor = Array(matchingPOIs.prefix(10))
+
+        for (index, poi) in poisToMonitor.enumerated() {
+            let poiId = "\(taskId)_poi\(index)"
+            let locationName = poi.name ?? "a location"
+
+            print("Setting up notification for POI \(index + 1): \(locationName)")
+
+            // Create notification content
+            let content = UNMutableNotificationContent()
+            content.title = "Smart Reminder"
+            content.body = "\(notificationTitle) - You are near \(locationName)"
+            content.sound = .default
+            content.badge = 1
+            content.userInfo = [
+                "taskId": taskId,
+                "poiId": poiId,
+                "locationName": locationName,
+                "isSmart": true,
+                "categoryName": categoryName
+            ]
+
+            // Create location-based trigger
+            let center = CLLocationCoordinate2D(latitude: poi.latitude, longitude: poi.longitude)
+            let region = CLCircularRegion(center: center, radius: effectiveRadius, identifier: poiId)
+            region.notifyOnEntry = true
+            region.notifyOnExit = false
+
+            let trigger = UNLocationNotificationTrigger(region: region, repeats: false)
+            let request = UNNotificationRequest(identifier: poiId, content: content, trigger: trigger)
+
+            // Schedule the notification
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("ERROR scheduling smart notification for \(locationName): \(error.localizedDescription)")
+                } else {
+                    print("SUCCESS: Scheduled smart notification for \(locationName)")
+                }
+            }
+
+            // Also set up region monitoring via LocationManager for more reliable detection
+            let locationManager = LocationManager.shared
+            if locationManager.authorizationStatus == .authorizedAlways {
+                locationManager.startMonitoringRegion(
+                    identifier: poiId,
+                    center: center,
+                    radius: effectiveRadius
+                )
+            }
+        }
+
+        print("=== Smart Notifications Scheduling Complete: \(poisToMonitor.count) regions ===")
+    }
+
+    /// Cancels all smart notifications for a task
+    func cancelSmartNotifications(for task: TodoTask) {
+        guard let taskId = task.id?.uuidString else { return }
+
+        // Remove from active tasks
+        activeLocationTasks.removeValue(forKey: taskId)
+
+        // Cancel all POI-specific notifications (up to 10)
+        var identifiersToCancel = [taskId]
+        for i in 0..<10 {
+            identifiersToCancel.append("\(taskId)_poi\(i)")
+        }
+
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
+
+        // Stop region monitoring for all POIs
+        for identifier in identifiersToCancel {
+            LocationManager.shared.stopMonitoringRegion(identifier: identifier)
+        }
+    }
+
     // MARK: - Setup All Location-Based Task Monitoring
 
     func setupLocationMonitoringForAllTasks(context: NSManagedObjectContext) {
@@ -249,20 +375,42 @@ final class NotificationManager: ObservableObject {
 
         self.managedObjectContext = context
 
-        let fetchRequest: NSFetchRequest<TodoTask> = TodoTask.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "isCompleted == NO AND notificationType == %@", "location")
+        // Fetch location-based tasks
+        let locationFetchRequest: NSFetchRequest<TodoTask> = TodoTask.fetchRequest()
+        locationFetchRequest.predicate = NSPredicate(format: "isCompleted == NO AND notificationType == %@", "location")
 
         do {
-            let tasks = try context.fetch(fetchRequest)
-            print("Setting up location monitoring for \(tasks.count) location-based tasks")
+            let locationTasks = try context.fetch(locationFetchRequest)
+            print("Setting up location monitoring for \(locationTasks.count) location-based tasks")
 
-            for task in tasks {
+            for task in locationTasks {
                 if task.notificationLocation != nil && task.locationNotificationDistance > 0 {
                     scheduleLocationNotification(for: task)
                 }
             }
         } catch {
             print("Error fetching location-based tasks: \(error)")
+        }
+
+        // Fetch smart notification tasks
+        let smartFetchRequest: NSFetchRequest<TodoTask> = TodoTask.fetchRequest()
+        smartFetchRequest.predicate = NSPredicate(format: "isCompleted == NO AND notificationType == %@", "smart")
+
+        do {
+            let smartTasks = try context.fetch(smartFetchRequest)
+            print("Setting up location monitoring for \(smartTasks.count) smart notification tasks")
+
+            for task in smartTasks {
+                if let categoryRawValue = task.smartLocationCategory,
+                   let category = LocationCategory(rawValue: categoryRawValue) {
+                    let matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: [category], in: context)
+                    if !matchingPOIs.isEmpty {
+                        scheduleSmartNotifications(for: task, matchingPOIs: matchingPOIs)
+                    }
+                }
+            }
+        } catch {
+            print("Error fetching smart notification tasks: \(error)")
         }
     }
 
@@ -340,9 +488,15 @@ final class NotificationManager: ObservableObject {
         // Cancel pending notifications
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier, "immediate-\(identifier)"])
 
-        // Stop region monitoring if it's a location-based task
-        if task.notificationType == "location" {
+        // Stop region monitoring based on notification type
+        let notificationType = task.notificationType ?? "smart"
+        switch notificationType {
+        case "location":
             LocationManager.shared.stopMonitoringRegion(identifier: identifier)
+        case "smart":
+            cancelSmartNotifications(for: task)
+        default:
+            break
         }
     }
     

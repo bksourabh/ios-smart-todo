@@ -30,10 +30,14 @@ struct AddEditTaskView: View {
     @State private var notificationMinutes: Int = 0
 
     // Location-based notification state
-    @State private var notificationType: String = "time"
+    @State private var notificationType: String = "smart"  // Default to smart
     @State private var locationNotificationDistance: Int = 15
     @State private var selectedPOI: PointOfInterest?
     @State private var showingAddPOI = false
+
+    // Smart notification state
+    @State private var detectedCategories: [LocationCategory] = []
+    @State private var matchingPOIs: [PointOfInterest] = []
 
     private var isLocationNotificationsEnabled: Bool {
         return locationManager.isLocationBasedNotificationsAvailable
@@ -60,6 +64,15 @@ struct AddEditTaskView: View {
     private var isLocationNotificationValid: Bool {
         guard notificationType == "location" else { return true }
         return selectedPOI != nil
+    }
+
+    private var isSmartNotificationValid: Bool {
+        // Smart notification is always valid - it can work without matching locations
+        return true
+    }
+
+    private var hasMatchingLocations: Bool {
+        return !matchingPOIs.isEmpty
     }
 
     @ViewBuilder
@@ -109,8 +122,8 @@ struct AddEditTaskView: View {
                     }
                 }
 
-                // Only show Due Date section for time-based notifications (or when location is disabled)
-                if notificationType == "time" || !isLocationNotificationsEnabled {
+                // Only show Due Date section for time-based notifications
+                if notificationType == "time" {
                     Section(header: Text("Due Date"), footer: dueDateFooter) {
                         DatePicker("Due Date", selection: $dueDate, in: Date().addingTimeInterval(5 * 60 + 1)..., displayedComponents: [.date, .hourAndMinute])
                             .onChange(of: dueDate) { oldValue, newValue in
@@ -139,48 +152,36 @@ struct AddEditTaskView: View {
                     }
                 }
 
-                Section(header: Text("Notification"), footer: notificationType == "time" ? notificationFooter : nil) {
-                    if isLocationNotificationsEnabled {
-                        Picker("Notification Type", selection: $notificationType) {
-                            Text("Time-based").tag("time")
-                            Text("Location-based").tag("location")
-                        }
-                        .pickerStyle(SegmentedPickerStyle())
-                    } else {
-                        // Location notifications disabled - show info
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("Time-based")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                Spacer()
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.blue)
-                            }
-                            .padding(.vertical, 4)
-
-                            HStack(spacing: 8) {
-                                Image(systemName: "location.slash.fill")
-                                    .foregroundColor(.orange)
-                                    .font(.caption)
-                                Text("Location-based notifications require \"Always Allow\" location permission. Enable in Settings.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.top, 4)
-
-                            Button(action: openLocationSettings) {
-                                HStack {
-                                    Image(systemName: "gear")
-                                    Text("Open Settings")
-                                }
-                                .font(.caption)
-                            }
-                            .padding(.top, 4)
+                Section(header: Text("Notification Type")) {
+                    // Notification type picker - always show all 3 options
+                    Picker("Type", selection: $notificationType) {
+                        HStack {
+                            Image(systemName: "wand.and.stars")
+                            Text("Smart")
+                        }.tag("smart")
+                        HStack {
+                            Image(systemName: "clock")
+                            Text("Time")
+                        }.tag("time")
+                        HStack {
+                            Image(systemName: "location")
+                            Text("Location")
+                        }.tag("location")
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                    .onChange(of: notificationType) { _, newValue in
+                        if newValue == "smart" {
+                            analyzeTaskForSmartNotification()
                         }
                     }
 
-                    if notificationType == "time" || !isLocationNotificationsEnabled {
+                    // Smart notification info
+                    if notificationType == "smart" {
+                        smartNotificationSection
+                    }
+
+                    // Time-based options
+                    if notificationType == "time" {
                         Picker(selection: $notificationMinutes, label: Text(notificationMinutes == 0 ? "Notify me x minutes before" : "Notify me \(notificationMinutes) minute\(notificationMinutes == 1 ? "" : "s") before")) {
                             Text("No notification").tag(0)
                             ForEach(1...60, id: \.self) { minutes in
@@ -198,46 +199,76 @@ struct AddEditTaskView: View {
                                 showingNotificationPastError = false
                             }
                         }
-                    } else if isLocationNotificationsEnabled {
-                        // Location-based notification
-                        Picker("Notification Distance", selection: $locationNotificationDistance) {
-                            ForEach(1...50, id: \.self) { distance in
-                                Text("\(distance) metre\(distance == 1 ? "" : "s")").tag(distance)
-                            }
-                        }
 
-                        if pointsOfInterest.isEmpty {
+                        if showingNotificationPastError {
+                            Label("Notification time would be in the past", systemImage: "exclamationmark.circle.fill")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+
+                    // Location-based options
+                    if notificationType == "location" {
+                        if !isLocationNotificationsEnabled {
+                            // Location notifications disabled - show info
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("No points of interest available")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                Button(action: {
-                                    showingAddPOI = true
-                                }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "location.slash.fill")
+                                        .foregroundColor(.orange)
+                                        .font(.caption)
+                                    Text("Location-based notifications require \"Always Allow\" location permission.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Button(action: openLocationSettings) {
                                     HStack {
-                                        Image(systemName: "plus.circle.fill")
-                                        Text("Add Point of Interest")
+                                        Image(systemName: "gear")
+                                        Text("Open Settings")
                                     }
+                                    .font(.caption)
                                 }
                             }
                         } else {
-                            Picker("Location", selection: $selectedPOI) {
-                                Text("Select a location").tag(nil as PointOfInterest?)
-                                ForEach(pointsOfInterest) { poi in
-                                    Text(poi.name ?? "Unnamed").tag(poi as PointOfInterest?)
+                            Picker("Notification Distance", selection: $locationNotificationDistance) {
+                                ForEach(1...50, id: \.self) { distance in
+                                    Text("\(distance) metre\(distance == 1 ? "" : "s")").tag(distance)
                                 }
                             }
 
-                            if let poi = selectedPOI {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    if let address = poi.address, !address.isEmpty {
-                                        Text(address)
+                            if pointsOfInterest.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("No points of interest available")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    Button(action: {
+                                        showingAddPOI = true
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "plus.circle.fill")
+                                            Text("Add Point of Interest")
+                                        }
+                                    }
+                                }
+                            } else {
+                                Picker("Location", selection: $selectedPOI) {
+                                    Text("Select a location").tag(nil as PointOfInterest?)
+                                    ForEach(pointsOfInterest) { poi in
+                                        Text(poi.name ?? "Unnamed").tag(poi as PointOfInterest?)
+                                    }
+                                }
+
+                                if let poi = selectedPOI {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        if let address = poi.address, !address.isEmpty {
+                                            Text(address)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Text("Notify when \(locationNotificationDistance) metre\(locationNotificationDistance == 1 ? "" : "s") away")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
-                                    Text("Notify when \(locationNotificationDistance) metre\(locationNotificationDistance == 1 ? "" : "s") away")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
                                 }
                             }
                         }
@@ -281,32 +312,38 @@ struct AddEditTaskView: View {
                     let taskDueDate = task.dueDate ?? Date()
                     let now = Date()
                     let fiveMinutesFromNow = now.addingTimeInterval(5 * 60)
-                    // Add 1 second to ensure it's strictly more than 5 minutes
                     dueDate = taskDueDate <= fiveMinutesFromNow ? fiveMinutesFromNow.addingTimeInterval(1) : taskDueDate
                     notificationMinutes = Int(task.notificationMinutes)
-                    // Load location notification fields
-                    let savedNotificationType = task.notificationType ?? "time"
-                    // Only use location type if it's available
-                    notificationType = (savedNotificationType == "location" && !isLocationNotificationsEnabled) ? "time" : savedNotificationType
+                    // Load notification type
+                    let savedNotificationType = task.notificationType ?? "smart"
+                    notificationType = savedNotificationType
                     locationNotificationDistance = Int(task.locationNotificationDistance)
                     if locationNotificationDistance == 0 { locationNotificationDistance = 15 }
                     selectedPOI = task.notificationLocation
                     showingPastDateError = false
                     showingDateTooSoonError = false
                     showingNotificationPastError = false
+                    // Analyze for smart notification if applicable
+                    if savedNotificationType == "smart" {
+                        analyzeTaskForSmartNotification()
+                    }
                 } else {
-                    // For new tasks, set default due date to 6 minutes in the future
+                    // For new tasks, default to Smart notification
                     let now = Date()
                     let sixMinutesFromNow = now.addingTimeInterval(6 * 60)
                     dueDate = sixMinutesFromNow
-                    // Default notification is 1 minute before (time-based)
                     notificationMinutes = 1
-                    notificationType = "time"
+                    notificationType = "smart"  // Default to smart
                     locationNotificationDistance = 15
                     selectedPOI = nil
                     showingPastDateError = false
                     showingDateTooSoonError = false
                     showingNotificationPastError = false
+                }
+            }
+            .onChange(of: title) { _, _ in
+                if notificationType == "smart" {
+                    analyzeTaskForSmartNotification()
                 }
             }
             .sheet(isPresented: $showingAddPOI) {
@@ -366,7 +403,8 @@ struct AddEditTaskView: View {
             taskToSave.notificationType = notificationType
 
             // Save settings based on notification type
-            if notificationType == "time" {
+            switch notificationType {
+            case "time":
                 taskToSave.dateType = "dueDate"
                 taskToSave.dueDate = dueDate
                 taskToSave.startDate = nil
@@ -375,8 +413,9 @@ struct AddEditTaskView: View {
                 taskToSave.notificationMinutes = Int16(notificationMinutes)
                 taskToSave.locationNotificationDistance = 0
                 taskToSave.notificationLocation = nil
-            } else {
-                // Location-based notification - no due date needed
+                taskToSave.smartLocationCategory = nil
+
+            case "location":
                 taskToSave.dateType = "location"
                 taskToSave.dueDate = nil
                 taskToSave.startDate = nil
@@ -385,11 +424,38 @@ struct AddEditTaskView: View {
                 taskToSave.notificationMinutes = 0
                 taskToSave.locationNotificationDistance = Int16(locationNotificationDistance)
                 taskToSave.notificationLocation = selectedPOI
+                taskToSave.smartLocationCategory = nil
+
+            case "smart":
+                // Smart notification - auto-detect locations
+                taskToSave.dateType = "smart"
+                taskToSave.dueDate = nil
+                taskToSave.startDate = nil
+                taskToSave.endDate = nil
+                taskToSave.group = nil
+                taskToSave.notificationMinutes = 0
+                taskToSave.locationNotificationDistance = Int16(locationNotificationDistance)
+                // Store the primary category for display purposes
+                if let primaryCategory = detectedCategories.first {
+                    taskToSave.smartLocationCategory = primaryCategory.rawValue
+                }
+                // Don't set a specific POI - the notification manager will handle multiple POIs
+                taskToSave.notificationLocation = nil
+
+            default:
+                break
             }
 
             do {
                 try viewContext.save()
-                notificationManager.scheduleNotification(for: taskToSave)
+
+                // Schedule notifications based on type
+                if notificationType == "smart" && !matchingPOIs.isEmpty {
+                    // Schedule notifications for all matching POIs
+                    notificationManager.scheduleSmartNotifications(for: taskToSave, matchingPOIs: matchingPOIs)
+                } else {
+                    notificationManager.scheduleNotification(for: taskToSave)
+                }
 
                 let successFeedback = UINotificationFeedbackGenerator()
                 successFeedback.notificationOccurred(.success)
@@ -399,6 +465,126 @@ struct AddEditTaskView: View {
                 let nsError = error as NSError
                 print("Error saving task: \(nsError), \(nsError.userInfo)")
             }
+        }
+    }
+
+    // MARK: - Smart Notification Section
+
+    private var smartNotificationSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Info about smart mode
+            HStack(spacing: 8) {
+                Image(systemName: "wand.and.stars")
+                    .foregroundColor(.purple)
+                    .font(.caption)
+                Text("Smart mode analyzes your task and automatically notifies you when near relevant locations.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 4)
+
+            // Show detected categories and matching POIs
+            if !title.trimmingCharacters(in: .whitespaces).isEmpty {
+                if !detectedCategories.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                            Text("Detected: \(detectedCategories.map { $0.displayName }.joined(separator: ", "))")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+
+                        if !matchingPOIs.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Will notify at \(matchingPOIs.count) location\(matchingPOIs.count == 1 ? "" : "s"):")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                ForEach(matchingPOIs.prefix(5)) { poi in
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "mappin.circle.fill")
+                                            .foregroundColor(.red)
+                                            .font(.system(size: 10))
+                                        Text(poi.name ?? "Unnamed")
+                                            .font(.caption)
+                                            .foregroundColor(.primary)
+                                    }
+                                }
+
+                                if matchingPOIs.count > 5 {
+                                    Text("... and \(matchingPOIs.count - 5) more")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .italic()
+                                }
+                            }
+                            .padding(.leading, 20)
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                    .font(.caption)
+                                Text("No matching locations saved. Add some points of interest to enable smart notifications.")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+
+                            Button(action: { showingAddPOI = true }) {
+                                HStack {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Add Locations")
+                                }
+                                .font(.caption)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(8)
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: "questionmark.circle")
+                            .foregroundColor(.gray)
+                            .font(.caption)
+                        Text("Enter a task description to detect relevant locations")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            // Distance picker for smart notifications
+            if !matchingPOIs.isEmpty {
+                Picker("Notification Distance", selection: $locationNotificationDistance) {
+                    ForEach([10, 15, 25, 50, 100], id: \.self) { distance in
+                        Text("\(distance) metres").tag(distance)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Smart Notification Analysis
+
+    private func analyzeTaskForSmartNotification() {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmedTitle.isEmpty else {
+            detectedCategories = []
+            matchingPOIs = []
+            return
+        }
+
+        // Analyze the task title to detect categories
+        detectedCategories = TaskCategoryAnalyzer.analyzeTask(title: trimmedTitle)
+
+        // Find matching POIs for detected categories
+        if !detectedCategories.isEmpty {
+            matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: detectedCategories, in: viewContext)
+        } else {
+            matchingPOIs = []
         }
     }
 }

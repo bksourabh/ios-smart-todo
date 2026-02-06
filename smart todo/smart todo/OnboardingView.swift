@@ -315,6 +315,7 @@ struct POISetupView: View {
     @State private var searchError: String?
     @State private var hasSearched = false
     @State private var permissionPhase: Int = 0  // 0 = not started, 1 = requesting when in use, 2 = requesting always
+    @State private var showingSelectionMode = false  // true = show individual selection list
 
     var body: some View {
         NavigationView {
@@ -710,13 +711,115 @@ struct POISetupView: View {
                     .buttonStyle(.bordered)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if !suggestions.isEmpty {
-                // Results list
+            } else if !suggestions.isEmpty && !showingSelectionMode {
+                // Results found - show two options
+                VStack(spacing: 24) {
+                    Spacer()
+
+                    // Success message
+                    VStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.green.opacity(0.15))
+                                .frame(width: 80, height: 80)
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(.green)
+                        }
+
+                        Text("\(suggestions.count) places found nearby!")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+
+                        Text("Stores, petrol stations, and pharmacies within 20km")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+
+                    Spacer()
+
+                    // Option buttons
+                    VStack(spacing: 16) {
+                        // Add All button
+                        Button(action: addAllPlaces) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 20))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Add All Places")
+                                        .font(.headline)
+                                    Text("Quick setup with all \(suggestions.count) locations")
+                                        .font(.caption)
+                                        .opacity(0.9)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.blue, Color.blue.opacity(0.8)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(14)
+                            .shadow(color: Color.blue.opacity(0.4), radius: 8, x: 0, y: 4)
+                        }
+
+                        // Choose Locations button
+                        Button(action: { showingSelectionMode = true }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "checklist")
+                                    .font(.system(size: 20))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Choose Locations")
+                                        .font(.headline)
+                                    Text("Select specific places to add")
+                                        .font(.caption)
+                                        .opacity(0.7)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(14)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+
+                    Spacer()
+                }
+            } else if !suggestions.isEmpty && showingSelectionMode {
+                // Selection mode - show individual selection list
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("\(suggestions.count) places found")
-                            .font(.headline)
+                        Button(action: { showingSelectionMode = false }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 14, weight: .medium))
+                                Text("Back")
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(.blue)
+                        }
+
                         Spacer()
+
+                        Text("\(suggestions.count) places")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        Spacer()
+
                         Button(action: toggleSelectAll) {
                             Text(selectedSuggestions.count == suggestions.count ? "Deselect All" : "Select All")
                                 .font(.subheadline)
@@ -767,33 +870,35 @@ struct POISetupView: View {
                 }
             }
 
-            // Bottom buttons
-            VStack(spacing: 12) {
-                if !suggestions.isEmpty && !selectedSuggestions.isEmpty {
-                    Button(action: addSelectedPlaces) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus.circle.fill")
-                            Text("Add \(selectedSuggestions.count) Place\(selectedSuggestions.count == 1 ? "" : "s")")
+            // Bottom buttons - only show in selection mode or initial/error states
+            if showingSelectionMode || suggestions.isEmpty {
+                VStack(spacing: 12) {
+                    if showingSelectionMode && !selectedSuggestions.isEmpty {
+                        Button(action: addSelectedPlaces) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Add \(selectedSuggestions.count) Place\(selectedSuggestions.count == 1 ? "" : "s")")
+                            }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Color.blue)
+                            .cornerRadius(14)
                         }
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.blue)
-                        .cornerRadius(14)
                     }
-                }
 
-                Button(action: skipSetup) {
-                    Text(hasSearched ? "Skip for Now" : "Set Up Later")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    Button(action: skipSetup) {
+                        Text(hasSearched ? "Skip for Now" : "Set Up Later")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.bottom, 8)
                 }
-                .padding(.bottom, 8)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 16)
+                .background(Color(UIColor.systemBackground))
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
-            .background(Color(UIColor.systemBackground))
         }
     }
 
@@ -903,6 +1008,32 @@ struct POISetupView: View {
 
         do {
             try viewContext.save()
+            isSetupComplete = true
+        } catch {
+            print("Error saving POIs: \(error)")
+        }
+    }
+
+    private func addAllPlaces() {
+        for item in suggestions {
+            let newPOI = PointOfInterest(context: viewContext)
+            newPOI.id = UUID()
+            newPOI.name = item.name ?? "Unnamed Location"
+            newPOI.latitude = item.location.coordinate.latitude
+            newPOI.longitude = item.location.coordinate.longitude
+            if let address = item.address {
+                newPOI.address = address.fullAddress
+            }
+            newPOI.createdAt = Date()
+        }
+
+        do {
+            try viewContext.save()
+
+            // Haptic feedback for success
+            let successFeedback = UINotificationFeedbackGenerator()
+            successFeedback.notificationOccurred(.success)
+
             isSetupComplete = true
         } catch {
             print("Error saving POIs: \(error)")

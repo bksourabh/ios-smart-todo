@@ -1,23 +1,33 @@
 APP NAME: Smart Todo
 
-SUBTITLE: Task Manager with Smart Reminders
+SUBTITLE: AI-Powered Task Reminders
 
 DESCRIPTION:
-Smart Todo helps you stay organized with intelligent task management and powerful reminder features.
+Smart Todo is the intelligent task manager that automatically knows where you need to be. Just add a task like "Buy medicines" and Smart Todo figures out the rest.
 
 KEY FEATURES:
 
-• Smart Notifications
-Get reminded at the perfect time. Set custom notification intervals from 1-60 minutes before your tasks are due.
+• Smart Auto-Location (NEW!)
+The magic of AI meets task management. Simply add a task and Smart Todo automatically detects relevant locations. Add "Buy medicines" and get notified near ALL your saved pharmacies. Add "Get fuel" and get reminded at ANY nearby petrol station. No manual setup required.
+
+• Intelligent Category Detection
+Smart Todo understands your tasks:
+  - Pharmacies: medicines, prescriptions, vitamins
+  - Fuel Stations: petrol, gas, fill up
+  - Supermarkets: groceries, shopping, food
+  - And many more categories!
 
 • Location-Based Reminders
-Never forget to pick up groceries or stop by the pharmacy. Save your favorite places and get notified when you're nearby.
+Save your favorite places and get notified when you're nearby. Perfect for errands and location-specific tasks.
+
+• Time-Based Notifications
+Get reminded at the perfect time. Set custom notification intervals from 1-60 minutes before your tasks are due.
+
+• Quick Setup
+Find and add nearby stores, pharmacies, and fuel stations with one tap. Smart Todo discovers useful locations around you automatically.
 
 • Beautiful, Intuitive Design
 A clean, modern interface that makes managing tasks a pleasure. Mark tasks complete with a tap, swipe to delete, and stay focused on what matters.
-
-• Points of Interest
-Discover and save nearby stores, pharmacies, and gas stations. Smart Todo finds useful locations around you automatically.
 
 • Privacy First
 All your data stays on your device. We don't collect or share your personal information.
@@ -25,17 +35,19 @@ All your data stays on your device. We don't collect or share your personal info
 • Sign in with Apple
 Secure, private authentication with your Apple ID. No passwords to remember.
 
-Whether you're managing daily errands, work tasks, or personal goals, Smart Todo adapts to your lifestyle with smart, context-aware reminders.
+Whether you're managing daily errands, work tasks, or personal goals, Smart Todo adapts to your lifestyle with intelligent, context-aware reminders.
 
-Download Smart Todo today and never miss an important task again!
+Download Smart Todo today and let AI handle your location reminders!
 
 ---
 
 KEYWORDS (100 characters max):
-task,todo,reminder,notification,location,productivity,checklist,organizer,planner,errands
+task,todo,reminder,AI,smart,location,productivity,checklist,organizer,planner,errands,notification
 
 WHAT'S NEW IN THIS VERSION:
-• Initial release
+• Smart Auto-Location - AI automatically detects task categories and notifies you at relevant locations
+• Intelligent category detection for pharmacies, fuel stations, supermarkets, and more
+• One-click "Add All Places" during setup
 • Time-based task reminders
 • Location-based notifications
 • Points of Interest discovery

@@ -16,8 +16,9 @@
         <attribute name="dateType" attributeType="String"/>
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="notificationMinutes" optional="YES" attributeType="Integer 16" defaultValueString="1" usesScalarValueType="YES"/>
-        <attribute name="notificationType" optional="YES" attributeType="String" defaultValueString="time"/>
+        <attribute name="notificationType" optional="YES" attributeType="String" defaultValueString="smart"/>
         <attribute name="locationNotificationDistance" optional="YES" attributeType="Integer 16" defaultValueString="15" usesScalarValueType="YES"/>
+        <attribute name="smartLocationCategory" optional="YES" attributeType="String"/>
         <relationship name="group" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Group" inverseName="tasks" inverseEntity="Group"/>
         <relationship name="notificationLocation" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PointOfInterest" inverseName="tasks" inverseEntity="PointOfInterest"/>
     </entity>
