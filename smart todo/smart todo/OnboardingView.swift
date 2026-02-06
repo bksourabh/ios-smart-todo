@@ -330,6 +330,7 @@ struct POISetupView: View {
             }
             .navigationBarHidden(true)
         }
+        .navigationViewStyle(.stack)
         .onAppear {
             // Check if already authorized
             if locationManager.authorizationStatus == .authorizedAlways {

@@ -53,8 +53,8 @@ final class LocationManager: NSObject, ObservableObject {
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = 10 // Update every 10 meters
-        authorizationStatus = locationManager.authorizationStatus
 
+        
         // Only start basic location updates if authorized (not background)
         // Background updates will be enabled explicitly when needed
         if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {

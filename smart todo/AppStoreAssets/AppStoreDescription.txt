@@ -42,9 +42,9 @@ WHAT'S NEW IN THIS VERSION:
 • Sign in with Apple authentication
 • Beautiful onboarding experience
 
-SUPPORT URL: [Your URL]
+SUPPORT URL: https://bksourabh.github.io/ios-smart-todo/support.html
 
-PRIVACY POLICY URL: [Your Privacy Policy URL]
+PRIVACY POLICY URL: https://bksourabh.github.io/ios-smart-todo/privacy.html
 
 ---
 
@@ -53,4 +53,4 @@ SECONDARY CATEGORY: Utilities
 
 AGE RATING: 4+
 
-COPYRIGHT: © 2026 [Your Name or Company]
+COPYRIGHT: © 2026 Sourabh Mazumder

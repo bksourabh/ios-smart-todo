@@ -294,6 +294,7 @@ struct ScreenHelpView: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
 
     private func helpStepCard(step: HelpStep, index: Int) -> some View {

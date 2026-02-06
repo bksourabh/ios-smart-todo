@@ -313,6 +313,7 @@ struct AddEditTaskView: View {
                 PointOfInterestManagerView()
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     private func openLocationSettings() {

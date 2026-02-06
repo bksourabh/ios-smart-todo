@@ -111,6 +111,7 @@ struct ContentView: View {
                     notificationManager.scheduleNotificationsForTodayTasks(context: viewContext)
                 }
             }
+            .navigationViewStyle(.stack)
             .onPreferenceChange(HighlightFramePreferenceKey.self) { frames in
                 highlightFrames = frames
             }

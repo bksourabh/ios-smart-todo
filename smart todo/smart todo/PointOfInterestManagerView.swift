@@ -142,6 +142,7 @@ struct PointOfInterestManagerView: View {
                 )
             }
         }
+        .navigationViewStyle(.stack)
     }
 
     private func loadSuggestions() {
@@ -475,6 +476,7 @@ struct SuggestionsView: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
 }
 
@@ -591,8 +593,9 @@ struct AddEditPointOfInterestView: View {
                 )
             }
         }
+        .navigationViewStyle(.stack)
     }
-    
+
     private func savePointOfInterest() {
         withAnimation {
             guard isNameValid && isLocationValid else { return }
@@ -1057,8 +1060,9 @@ struct MapLocationPickerView: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
-    
+
     private var annotationItems: [MapPin] {
         if let coordinate = droppedPinCoordinate ?? selectedLocation {
             return [MapPin(coordinate: coordinate)]

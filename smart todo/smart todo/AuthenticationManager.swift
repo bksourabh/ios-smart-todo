@@ -505,6 +505,7 @@ struct UserProfileView: View {
                 Text("You will need to sign in again to access your tasks.")
             }
         }
+        .navigationViewStyle(.stack)
     }
 
     private var initials: String {
