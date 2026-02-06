@@ -57,6 +57,17 @@ struct OnboardingView: View {
                 FeatureItem(icon: "location.magnifyingglass", text: "Discover nearby places"),
                 FeatureItem(icon: "bell.and.waves.left.and.right", text: "Proximity notifications")
             ]
+        ),
+        OnboardingPage(
+            icon: "lock.shield.fill",
+            iconColor: .teal,
+            title: "Your Privacy is Protected",
+            subtitle: "All your data stays securely on your device. Nothing is ever sent to external servers.",
+            features: [
+                FeatureItem(icon: "iphone", text: "All data stored locally on device"),
+                FeatureItem(icon: "xmark.icloud", text: "No cloud sync or external servers"),
+                FeatureItem(icon: "cpu", text: "AI processing happens on-device")
+            ]
         )
     ]
 

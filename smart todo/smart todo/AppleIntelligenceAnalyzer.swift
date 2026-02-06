@@ -67,6 +67,12 @@ class AppleIntelligenceAnalyzer {
     /// - Parameter title: The task title to analyze
     /// - Returns: The detected LocationCategory, or nil if no match
     func analyzeTask(title: String) async -> LocationCategory? {
+        // Validate input
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else {
+            return nil
+        }
+
         guard let session = session else {
             print("No language model session available, falling back to keyword matching")
             return TaskCategoryAnalyzer.primaryCategory(for: title)
@@ -75,7 +81,7 @@ class AppleIntelligenceAnalyzer {
         let prompt = """
         Analyze this task and determine which location category it belongs to.
 
-        Task: "\(title)"
+        Task: "\(trimmedTitle)"
 
         Available categories:
         - pharmacy: Tasks related to medicines, prescriptions, health supplies
@@ -94,12 +100,24 @@ class AppleIntelligenceAnalyzer {
         """
 
         do {
+            // Check for task cancellation before making the API call
+            try Task.checkCancellation()
+
             let response = try await session.respond(
                 to: prompt,
                 generating: TaskCategoryResponse.self
             )
 
+            // Check for cancellation after API call
+            try Task.checkCancellation()
+
             let result = response.content
+
+            // Validate the response
+            guard !result.category.isEmpty else {
+                print("Empty category response, falling back to keyword matching")
+                return TaskCategoryAnalyzer.primaryCategory(for: title)
+            }
 
             // Only accept high-confidence predictions
             guard result.confidence >= 0.6 else {
@@ -114,6 +132,10 @@ class AppleIntelligenceAnalyzer {
 
             return LocationCategory(rawValue: result.category)
 
+        } catch is CancellationError {
+            // Task was cancelled, just return nil without fallback
+            print("Apple Intelligence analysis was cancelled")
+            return nil
         } catch {
             print("Apple Intelligence analysis failed: \(error)")
             // Fall back to keyword matching
@@ -125,28 +147,54 @@ class AppleIntelligenceAnalyzer {
     /// - Parameter title: The task title to analyze
     /// - Returns: Array of tuples containing category and confidence
     func analyzeTaskWithConfidence(title: String) async -> [(category: LocationCategory, confidence: Double)] {
+        // Validate input
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else {
+            return []
+        }
+
         guard session != nil else {
             // Fall back to keyword matching (assign synthetic confidence based on keyword match score)
-            let categories = TaskCategoryAnalyzer.analyzeTask(title: title)
+            let categories = TaskCategoryAnalyzer.analyzeTask(title: trimmedTitle)
             return categories.enumerated().map { index, category in
                 (category, 0.8 - Double(index) * 0.1) // Decreasing confidence for secondary matches
             }
         }
 
-        // For multi-category analysis, get the primary category and supplement with keyword matching
-        if let primaryCategory = await analyzeTask(title: title) {
-            var results: [(LocationCategory, Double)] = [(primaryCategory, 0.9)]
+        do {
+            // Check for cancellation
+            try Task.checkCancellation()
 
-            // Add secondary matches from keyword analysis
-            let keywordMatches = TaskCategoryAnalyzer.analyzeTask(title: title)
-            for category in keywordMatches where category != primaryCategory {
-                results.append((category, 0.5))
+            // For multi-category analysis, get the primary category and supplement with keyword matching
+            if let primaryCategory = await analyzeTask(title: trimmedTitle) {
+                var results: [(LocationCategory, Double)] = [(primaryCategory, 0.9)]
+
+                // Add secondary matches from keyword analysis
+                let keywordMatches = TaskCategoryAnalyzer.analyzeTask(title: trimmedTitle)
+                for category in keywordMatches where category != primaryCategory {
+                    results.append((category, 0.5))
+                }
+
+                return results
             }
 
-            return results
-        }
+            // If no AI match, try keyword matching
+            let categories = TaskCategoryAnalyzer.analyzeTask(title: trimmedTitle)
+            return categories.enumerated().map { index, category in
+                (category, 0.7 - Double(index) * 0.1)
+            }
 
-        return []
+        } catch is CancellationError {
+            print("Analysis with confidence was cancelled")
+            return []
+        } catch {
+            print("Analysis with confidence failed: \(error)")
+            // Fall back to keyword matching
+            let categories = TaskCategoryAnalyzer.analyzeTask(title: trimmedTitle)
+            return categories.enumerated().map { index, category in
+                (category, 0.7 - Double(index) * 0.1)
+            }
+        }
     }
 }
 
@@ -179,14 +227,28 @@ class SmartTaskAnalyzer {
     /// - Returns: The detected LocationCategory, or nil if no match
     @MainActor
     func analyzeTask(title: String) async -> LocationCategory? {
+        // Validate input
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else {
+            return nil
+        }
+
         #if canImport(FoundationModels)
         if #available(iOS 26.0, macOS 26.0, *), AppleIntelligenceAnalyzer.isAvailable {
-            return await AppleIntelligenceAnalyzer.shared.analyzeTask(title: title)
+            do {
+                try Task.checkCancellation()
+                return await AppleIntelligenceAnalyzer.shared.analyzeTask(title: trimmedTitle)
+            } catch is CancellationError {
+                return nil
+            } catch {
+                print("SmartTaskAnalyzer error: \(error)")
+                // Fall through to keyword matching
+            }
         }
         #endif
 
         // Fall back to keyword matching
-        return TaskCategoryAnalyzer.primaryCategory(for: title)
+        return TaskCategoryAnalyzer.primaryCategory(for: trimmedTitle)
     }
 
     /// Synchronous analysis using keyword matching only
@@ -198,15 +260,29 @@ class SmartTaskAnalyzer {
     /// Get all matching categories for a task
     @MainActor
     func analyzeTaskAllCategories(title: String) async -> [LocationCategory] {
+        // Validate input
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else {
+            return []
+        }
+
         #if canImport(FoundationModels)
         if #available(iOS 26.0, macOS 26.0, *), AppleIntelligenceAnalyzer.isAvailable {
-            let results = await AppleIntelligenceAnalyzer.shared.analyzeTaskWithConfidence(title: title)
-            return results.map { $0.category }
+            do {
+                try Task.checkCancellation()
+                let results = await AppleIntelligenceAnalyzer.shared.analyzeTaskWithConfidence(title: trimmedTitle)
+                return results.map { $0.category }
+            } catch is CancellationError {
+                return []
+            } catch {
+                print("SmartTaskAnalyzer analyzeAllCategories error: \(error)")
+                // Fall through to keyword matching
+            }
         }
         #endif
 
         // Fall back to keyword matching
-        return TaskCategoryAnalyzer.analyzeTask(title: title)
+        return TaskCategoryAnalyzer.analyzeTask(title: trimmedTitle)
     }
 
     /// Find matching POIs for detected categories

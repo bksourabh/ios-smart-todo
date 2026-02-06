@@ -39,6 +39,8 @@ struct AddEditTaskView: View {
     @State private var detectedCategories: [LocationCategory] = []
     @State private var matchingPOIs: [PointOfInterest] = []
     @State private var isAnalyzing: Bool = false
+    @State private var analysisTask: Task<Void, Never>?
+    @State private var lastAnalyzedTitle: String = ""
 
     private var isLocationNotificationsEnabled: Bool {
         return locationManager.isLocationBasedNotificationsAvailable
@@ -350,6 +352,11 @@ struct AddEditTaskView: View {
             .sheet(isPresented: $showingAddPOI) {
                 PointOfInterestManagerView()
             }
+            .onDisappear {
+                // Cancel any pending analysis when view disappears
+                analysisTask?.cancel()
+                analysisTask = nil
+            }
         }
         .navigationViewStyle(.stack)
     }
@@ -591,36 +598,82 @@ struct AddEditTaskView: View {
 
     private func analyzeTaskForSmartNotification() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+
+        // Skip if already analyzed this exact title
+        guard trimmedTitle != lastAnalyzedTitle else { return }
+
+        // Cancel any pending analysis task
+        analysisTask?.cancel()
+        analysisTask = nil
+
         guard !trimmedTitle.isEmpty else {
             detectedCategories = []
             matchingPOIs = []
             isAnalyzing = false
+            lastAnalyzedTitle = ""
             return
         }
+
+        // Capture the context for thread-safe access
+        let context = viewContext
 
         // Use async analysis if Apple Intelligence is available
         if SmartTaskAnalyzer.shared.isAppleIntelligenceAvailable {
             isAnalyzing = true
-            Task {
-                let categories = await SmartTaskAnalyzer.shared.analyzeTaskAllCategories(title: trimmedTitle)
-                await MainActor.run {
+            let titleToAnalyze = trimmedTitle
+
+            analysisTask = Task { @MainActor in
+                // Add small delay for debouncing (prevents too many API calls while typing)
+                try? await Task.sleep(nanoseconds: 300_000_000) // 300ms
+
+                // Check if task was cancelled during sleep
+                guard !Task.isCancelled else {
+                    return
+                }
+
+                // Verify title hasn't changed during delay
+                guard titleToAnalyze == title.trimmingCharacters(in: .whitespaces) else {
+                    return
+                }
+
+                do {
+                    let categories = await SmartTaskAnalyzer.shared.analyzeTaskAllCategories(title: titleToAnalyze)
+
+                    // Check cancellation again after async call
+                    guard !Task.isCancelled else {
+                        return
+                    }
+
                     detectedCategories = categories
-                    if !detectedCategories.isEmpty {
-                        matchingPOIs = SmartTaskAnalyzer.shared.findMatchingPOIs(for: detectedCategories, in: viewContext)
+                    if !categories.isEmpty {
+                        matchingPOIs = SmartTaskAnalyzer.shared.findMatchingPOIs(for: categories, in: context)
                     } else {
                         matchingPOIs = []
                     }
-                    isAnalyzing = false
+                    lastAnalyzedTitle = titleToAnalyze
+                } catch {
+                    // Handle any errors gracefully
+                    print("Analysis error: \(error)")
+                    // Fall back to keyword matching on error
+                    detectedCategories = TaskCategoryAnalyzer.analyzeTask(title: titleToAnalyze)
+                    if !detectedCategories.isEmpty {
+                        matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: detectedCategories, in: context)
+                    } else {
+                        matchingPOIs = []
+                    }
+                    lastAnalyzedTitle = titleToAnalyze
                 }
+                isAnalyzing = false
             }
         } else {
             // Synchronous keyword-based analysis
             detectedCategories = TaskCategoryAnalyzer.analyzeTask(title: trimmedTitle)
             if !detectedCategories.isEmpty {
-                matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: detectedCategories, in: viewContext)
+                matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: detectedCategories, in: context)
             } else {
                 matchingPOIs = []
             }
+            lastAnalyzedTitle = trimmedTitle
         }
     }
 }
