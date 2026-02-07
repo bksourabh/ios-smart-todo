@@ -37,6 +37,17 @@ struct OnboardingView: View {
             ]
         ),
         OnboardingPage(
+            icon: "calendar.badge.plus",
+            iconColor: .red,
+            title: "Import from Calendar & Reminders",
+            subtitle: "Easily bring in your existing calendar events and reminders. AI will automatically categorize them for smart notifications. You'll have the option to import after setup.",
+            features: [
+                FeatureItem(icon: "calendar", text: "Import calendar events"),
+                FeatureItem(icon: "list.bullet", text: "Import reminders"),
+                FeatureItem(icon: "sparkles", text: "AI-powered categorization")
+            ]
+        ),
+        OnboardingPage(
             icon: "bell.badge.fill",
             iconColor: .orange,
             title: "Smart Notifications",

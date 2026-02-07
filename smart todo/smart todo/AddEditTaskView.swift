@@ -636,33 +636,20 @@ struct AddEditTaskView: View {
                     return
                 }
 
-                do {
-                    let categories = await SmartTaskAnalyzer.shared.analyzeTaskAllCategories(title: titleToAnalyze)
+                let categories = await SmartTaskAnalyzer.shared.analyzeTaskAllCategories(title: titleToAnalyze)
 
-                    // Check cancellation again after async call
-                    guard !Task.isCancelled else {
-                        return
-                    }
-
-                    detectedCategories = categories
-                    if !categories.isEmpty {
-                        matchingPOIs = SmartTaskAnalyzer.shared.findMatchingPOIs(for: categories, in: context)
-                    } else {
-                        matchingPOIs = []
-                    }
-                    lastAnalyzedTitle = titleToAnalyze
-                } catch {
-                    // Handle any errors gracefully
-                    print("Analysis error: \(error)")
-                    // Fall back to keyword matching on error
-                    detectedCategories = TaskCategoryAnalyzer.analyzeTask(title: titleToAnalyze)
-                    if !detectedCategories.isEmpty {
-                        matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: detectedCategories, in: context)
-                    } else {
-                        matchingPOIs = []
-                    }
-                    lastAnalyzedTitle = titleToAnalyze
+                // Check cancellation again after async call
+                guard !Task.isCancelled else {
+                    return
                 }
+
+                detectedCategories = categories
+                if !categories.isEmpty {
+                    matchingPOIs = SmartTaskAnalyzer.shared.findMatchingPOIs(for: categories, in: context)
+                } else {
+                    matchingPOIs = []
+                }
+                lastAnalyzedTitle = titleToAnalyze
                 isAnalyzing = false
             }
         } else {

@@ -173,7 +173,7 @@ struct SignInWithAppleButtonView: View {
             }
         )
         .signInWithAppleButtonStyle(.black)
-        .frame(height: 50)
+        .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50)
         .cornerRadius(10)
     }
 

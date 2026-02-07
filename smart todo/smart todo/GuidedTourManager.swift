@@ -130,20 +130,26 @@ final class GuidedTourManager: ObservableObject {
     @Published var isPOISetupComplete: Bool = false {
         didSet { UserDefaults.standard.set(isPOISetupComplete, forKey: poiSetupCompletedKey) }
     }
+    @Published var isCalendarImportComplete: Bool = false {
+        didSet { UserDefaults.standard.set(isCalendarImportComplete, forKey: calendarImportCompletedKey) }
+    }
 
     private let tourCompletedKey = "hasCompletedGuidedTour"
     private let onboardingCompletedKey = "hasCompletedOnboarding"
     private let poiSetupCompletedKey = "hasCompletedPOISetup"
+    private let calendarImportCompletedKey = "hasCompletedCalendarImport"
 
     init() {
         // Load persisted values - use temporary variables to avoid triggering didSet during init
         let tourCompleted = UserDefaults.standard.bool(forKey: tourCompletedKey)
         let onboardingCompleted = UserDefaults.standard.bool(forKey: onboardingCompletedKey)
         let poiSetupCompleted = UserDefaults.standard.bool(forKey: poiSetupCompletedKey)
+        let calendarImportCompleted = UserDefaults.standard.bool(forKey: calendarImportCompletedKey)
 
         self.hasCompletedTour = tourCompleted
         self.isOnboardingComplete = onboardingCompleted
         self.isPOISetupComplete = poiSetupCompleted
+        self.isCalendarImportComplete = calendarImportCompleted
     }
 
     func startTour() {
@@ -194,6 +200,7 @@ final class GuidedTourManager: ObservableObject {
     func resetOnboarding() {
         isOnboardingComplete = false
         isPOISetupComplete = false
+        isCalendarImportComplete = false
         resetTour()
     }
 }

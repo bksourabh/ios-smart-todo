@@ -195,6 +195,35 @@ struct SettingsView: View {
             } header: {
                 Text("Reminder Types")
             }
+
+            // Import Section
+            Section {
+                NavigationLink(destination: CalendarImportView()) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.blue.opacity(0.15))
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "calendar.badge.plus")
+                                .font(.system(size: 16))
+                                .foregroundColor(.blue)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Import from Calendar & Reminders")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("Bring in existing events and reminders")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            } header: {
+                Text("Import")
+            } footer: {
+                Text("Import calendar events and reminders, then let AI analyze and categorize them for smart notifications.")
+            }
         }
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)

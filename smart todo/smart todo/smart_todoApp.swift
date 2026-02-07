@@ -26,6 +26,7 @@ struct smart_todoApp: App {
                 .animation(.easeInOut, value: authManager.isAuthenticated)
                 .animation(.easeInOut, value: tourManager.isOnboardingComplete)
                 .animation(.easeInOut, value: tourManager.isPOISetupComplete)
+                .animation(.easeInOut, value: tourManager.isCalendarImportComplete)
         }
     }
 
@@ -46,6 +47,12 @@ struct smart_todoApp: App {
                 )
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .preferredColorScheme(themeManager.colorScheme)
+            } else if !tourManager.isCalendarImportComplete {
+                // Show calendar import after POI setup
+                CalendarImportSetupView(isSetupComplete: $tourManager.isCalendarImportComplete)
+                    .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                    .environmentObject(notificationManager)
+                    .preferredColorScheme(themeManager.colorScheme)
             } else {
                 // Show main content with guided tour
                 ContentView()

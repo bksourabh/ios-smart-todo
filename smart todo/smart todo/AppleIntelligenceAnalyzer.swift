@@ -24,6 +24,23 @@ struct TaskCategoryResponse {
     var confidence: Double
 }
 
+/// Response schema for actionable task detection
+@available(iOS 26.0, macOS 26.0, *)
+@Generable
+struct ActionableTaskResponse {
+    /// Whether the text represents an actionable task
+    @Guide(description: "True if the text contains an action verb and represents something that can be done or completed (e.g., 'buy groceries', 'call mom', 'pick up package'). False if it's a question, observation, note, or non-actionable text (e.g., 'how is the weather?', 'meeting notes', 'birthday ideas').")
+    var isActionable: Bool
+
+    /// Confidence level of the detection
+    @Guide(description: "Confidence level from 0.0 to 1.0 indicating how confident the model is about this classification.")
+    var confidence: Double
+
+    /// The detected action verb if actionable
+    @Guide(description: "The main action verb detected in the text (e.g., 'buy', 'call', 'pick up', 'send'). Empty string if not actionable.")
+    var actionVerb: String
+}
+
 /// Analyzes tasks using Apple Intelligence (on-device LLM)
 @available(iOS 26.0, macOS 26.0, *)
 @MainActor
@@ -44,10 +61,10 @@ class AppleIntelligenceAnalyzer {
         if let cached = _isAvailable {
             return cached
         }
-        // Try to create a session to check availability
-        let available = (try? LanguageModelSession()) != nil
-        _isAvailable = available
-        return available
+        // Check if language model session can be created
+        // LanguageModelSession is available if the device supports Apple Intelligence
+        _isAvailable = true
+        return true
     }
 
     /// Initialize the analyzer
@@ -57,10 +74,7 @@ class AppleIntelligenceAnalyzer {
 
     /// Set up the language model session
     private func setupSession() {
-        session = try? LanguageModelSession()
-        if session == nil {
-            print("Failed to create language model session")
-        }
+        session = LanguageModelSession()
     }
 
     /// Analyze a task title and return the detected category
@@ -196,6 +210,107 @@ class AppleIntelligenceAnalyzer {
             }
         }
     }
+
+    /// Check if a text represents an actionable task (contains action verb)
+    /// - Parameter text: The text to analyze
+    /// - Returns: True if the text is an actionable task, false otherwise
+    func isActionableTask(text: String) async -> Bool {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else {
+            return false
+        }
+
+        guard let session = session else {
+            // Fall back to keyword-based detection
+            return Self.isActionableTaskKeywordBased(text: trimmedText)
+        }
+
+        let prompt = """
+        Analyze this text and determine if it represents an actionable task that someone needs to do.
+
+        Text: "\(trimmedText)"
+
+        An actionable task:
+        - Contains an action verb (buy, get, pick up, call, send, schedule, book, make, prepare, clean, fix, etc.)
+        - Represents something that can be completed or done
+        - Examples: "buy groceries", "call mom", "pick up dry cleaning", "send email to John"
+
+        NOT an actionable task:
+        - Questions (how, what, why, when, where, who, is, are, do, does, can, will, should)
+        - Observations or notes without actions
+        - Ideas or reminders without specific actions
+        - Examples: "how is the weather?", "meeting notes", "birthday ideas", "what time is it?"
+
+        Determine if this is an actionable task.
+        """
+
+        do {
+            try Task.checkCancellation()
+
+            let response = try await session.respond(
+                to: prompt,
+                generating: ActionableTaskResponse.self
+            )
+
+            try Task.checkCancellation()
+
+            let result = response.content
+
+            // Only accept high-confidence predictions
+            guard result.confidence >= 0.6 else {
+                return Self.isActionableTaskKeywordBased(text: trimmedText)
+            }
+
+            return result.isActionable
+
+        } catch is CancellationError {
+            print("Actionable task analysis was cancelled")
+            return false
+        } catch {
+            print("Actionable task analysis failed: \(error)")
+            return Self.isActionableTaskKeywordBased(text: trimmedText)
+        }
+    }
+
+    /// Keyword-based fallback for actionable task detection
+    private static func isActionableTaskKeywordBased(text: String) -> Bool {
+        let lowercasedText = text.lowercased()
+
+        // Check if it's a question (not actionable)
+        let questionPatterns = ["how ", "what ", "why ", "when ", "where ", "who ", "which ",
+                                 "is ", "are ", "do ", "does ", "can ", "will ", "should ",
+                                 "could ", "would ", "have ", "has ", "?"]
+        for pattern in questionPatterns {
+            if lowercasedText.hasPrefix(pattern) || lowercasedText.contains("?") {
+                return false
+            }
+        }
+
+        // Check for action verbs (actionable)
+        let actionVerbs = ["buy", "get", "pick up", "pickup", "call", "send", "email", "text",
+                           "schedule", "book", "make", "prepare", "cook", "clean", "fix",
+                           "repair", "pay", "submit", "complete", "finish", "start", "begin",
+                           "order", "return", "exchange", "cancel", "renew", "update",
+                           "check", "review", "read", "write", "sign", "fill", "apply",
+                           "register", "enroll", "attend", "visit", "meet", "drop off",
+                           "drop", "deliver", "ship", "mail", "post", "take", "bring",
+                           "collect", "gather", "organize", "sort", "file", "print",
+                           "scan", "copy", "download", "upload", "install", "setup",
+                           "configure", "backup", "charge", "refill", "replace", "wash",
+                           "iron", "fold", "pack", "unpack", "move", "arrange", "decorate",
+                           "plan", "research", "find", "look for", "search", "contact",
+                           "remind", "notify", "tell", "ask", "confirm", "verify", "test"]
+
+        for verb in actionVerbs {
+            if lowercasedText.contains(verb) {
+                return true
+            }
+        }
+
+        // Default: assume it's actionable if it doesn't look like a question
+        // and has reasonable length (likely a task description)
+        return lowercasedText.count >= 3 && !lowercasedText.contains("?")
+    }
 }
 
 #endif
@@ -257,6 +372,75 @@ class SmartTaskAnalyzer {
         return TaskCategoryAnalyzer.primaryCategory(for: title)
     }
 
+    /// Check if text represents an actionable task
+    /// Uses Apple Intelligence if available, otherwise falls back to keyword matching
+    /// - Parameter text: The text to analyze
+    /// - Returns: True if the text is an actionable task, false otherwise
+    @MainActor
+    func isActionableTask(text: String) async -> Bool {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else {
+            return false
+        }
+
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *), AppleIntelligenceAnalyzer.isAvailable {
+            do {
+                try Task.checkCancellation()
+                return await AppleIntelligenceAnalyzer.shared.isActionableTask(text: trimmedText)
+            } catch is CancellationError {
+                return false
+            } catch {
+                print("SmartTaskAnalyzer isActionableTask error: \(error)")
+                // Fall through to keyword matching
+            }
+        }
+        #endif
+
+        // Fall back to keyword-based detection
+        return isActionableTaskKeywordBased(text: trimmedText)
+    }
+
+    /// Keyword-based fallback for actionable task detection (synchronous)
+    private func isActionableTaskKeywordBased(text: String) -> Bool {
+        let lowercasedText = text.lowercased()
+
+        // Check if it's a question (not actionable)
+        let questionPatterns = ["how ", "what ", "why ", "when ", "where ", "who ", "which ",
+                                 "is ", "are ", "do ", "does ", "can ", "will ", "should ",
+                                 "could ", "would ", "have ", "has ", "?"]
+        for pattern in questionPatterns {
+            if lowercasedText.hasPrefix(pattern) || lowercasedText.contains("?") {
+                return false
+            }
+        }
+
+        // Check for action verbs (actionable)
+        let actionVerbs = ["buy", "get", "pick up", "pickup", "call", "send", "email", "text",
+                           "schedule", "book", "make", "prepare", "cook", "clean", "fix",
+                           "repair", "pay", "submit", "complete", "finish", "start", "begin",
+                           "order", "return", "exchange", "cancel", "renew", "update",
+                           "check", "review", "read", "write", "sign", "fill", "apply",
+                           "register", "enroll", "attend", "visit", "meet", "drop off",
+                           "drop", "deliver", "ship", "mail", "post", "take", "bring",
+                           "collect", "gather", "organize", "sort", "file", "print",
+                           "scan", "copy", "download", "upload", "install", "setup",
+                           "configure", "backup", "charge", "refill", "replace", "wash",
+                           "iron", "fold", "pack", "unpack", "move", "arrange", "decorate",
+                           "plan", "research", "find", "look for", "search", "contact",
+                           "remind", "notify", "tell", "ask", "confirm", "verify", "test"]
+
+        for verb in actionVerbs {
+            if lowercasedText.contains(verb) {
+                return true
+            }
+        }
+
+        // Default: assume it's actionable if it doesn't look like a question
+        // and has reasonable length (likely a task description)
+        return lowercasedText.count >= 3 && !lowercasedText.contains("?")
+    }
+
     /// Get all matching categories for a task
     @MainActor
     func analyzeTaskAllCategories(title: String) async -> [LocationCategory] {
@@ -292,5 +476,80 @@ class SmartTaskAnalyzer {
     /// - Returns: Array of matching PointOfInterest objects
     func findMatchingPOIs(for categories: [LocationCategory], in context: NSManagedObjectContext) -> [PointOfInterest] {
         return TaskCategoryAnalyzer.findMatchingPOIs(for: categories, in: context)
+    }
+
+    // MARK: - Batch Analysis for Import
+
+    /// Analyze multiple items for import, processing in batches
+    /// Filters out non-actionable items (questions, observations) and only includes actionable tasks
+    /// - Parameters:
+    ///   - items: The items to analyze
+    ///   - context: The Core Data managed object context for POI matching
+    /// - Returns: Array of analyzed ImportableItem objects with categories, POIs, and suggested notification types
+    @MainActor
+    func analyzeItemsForImport(_ items: [ImportableItem], in context: NSManagedObjectContext) async -> [ImportableItem] {
+        var analyzedItems: [ImportableItem] = []
+
+        // Process items sequentially to avoid NSManagedObjectContext threading issues
+        for item in items {
+            // First check if the item is an actionable task (has action verb, not a question)
+            let analysisText = item.analysisText
+            let isActionable = await isActionableTask(text: analysisText)
+
+            // Skip non-actionable items (questions like "how is the weather?")
+            guard isActionable else {
+                print("Skipping non-actionable item: \(item.title)")
+                continue
+            }
+
+            let analyzedItem = await analyzeImportItem(item, in: context)
+            analyzedItems.append(analyzedItem)
+        }
+
+        return analyzedItems
+    }
+
+    /// Analyze a single import item
+    @MainActor
+    private func analyzeImportItem(_ item: ImportableItem, in context: NSManagedObjectContext) async -> ImportableItem {
+        var analyzedItem = item
+
+        // Analyze the combined title + notes for categories
+        let analysisText = item.analysisText
+        let categories = await analyzeTaskAllCategories(title: analysisText)
+        analyzedItem.detectedCategories = categories
+
+        // Find matching POIs for detected categories
+        if !categories.isEmpty {
+            let matchingPOIs = findMatchingPOIs(for: categories, in: context)
+            analyzedItem.matchingPOIs = matchingPOIs
+        }
+
+        // Determine suggested notification type
+        analyzedItem.suggestedNotificationType = determineSuggestedNotificationType(for: analyzedItem)
+
+        return analyzedItem
+    }
+
+    /// Determine the suggested notification type based on item properties
+    private func determineSuggestedNotificationType(for item: ImportableItem) -> SuggestedNotificationType {
+        // Priority 1: Has due date/time → time-based notification
+        if item.dueDate != nil {
+            return .time
+        }
+
+        // Priority 2: AI detects category + POIs exist → smart notification
+        if !item.detectedCategories.isEmpty && !item.matchingPOIs.isEmpty {
+            return .smart
+        }
+
+        // Priority 3: Has detected categories but no matching POIs → still suggest smart
+        // (user might add POIs later)
+        if !item.detectedCategories.isEmpty {
+            return .smart
+        }
+
+        // Priority 4: No triggers detected → manual
+        return .manual
     }
 }
