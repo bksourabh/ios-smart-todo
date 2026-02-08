@@ -11,7 +11,7 @@ KEY FEATURES:
 On iPhone 15 Pro and later, Smart Todo uses Apple Intelligence to understand your tasks with remarkable accuracy. The on-device AI analyzes natural language to detect context and intent, even for complex or nuanced task descriptions. All processing happens privately on your device.
 
 • Calendar & Reminders Import
-Seamlessly import your existing iOS Calendar events and Reminders. Smart Todo intelligently analyzes each item using Apple Intelligence to identify actionable tasks - filtering out questions and notes while keeping real to-dos like "Buy groceries" or "Pick up prescription". Imported tasks are automatically matched with your saved locations for smart notifications.
+Seamlessly import your existing iOS Calendar events and Reminders. Smart Todo intelligently analyzes each item using Apple Intelligence to identify actionable tasks - automatically filtering out questions and notes while keeping real to-dos like "Buy groceries" or "Pick up prescription". Select individual items or use bulk select/deselect for quick import. Imported tasks are automatically matched with your saved locations for smart notifications.
 
 • Smart Auto-Location
 The magic of AI meets task management. Simply add a task and Smart Todo automatically detects relevant locations. Add "Buy medicines" and get notified near ALL your saved pharmacies. Add "Get fuel" and get reminded at ANY nearby petrol station. No manual setup required.
@@ -23,7 +23,7 @@ Smart Todo understands your tasks:
   - Supermarkets: groceries, shopping, food
   - Restaurants, Banks, Post Offices
   - Hardware, Electronics, Clothing Stores
-  - And more!
+  - And more categories!
 
 • Location-Based Reminders
 Save your favorite places and get notified when you're nearby. Perfect for errands and location-specific tasks.
@@ -32,7 +32,10 @@ Save your favorite places and get notified when you're nearby. Perfect for erran
 Get reminded at the perfect time. Set custom notification intervals from 1-60 minutes before your tasks are due.
 
 • Guided Setup Experience
-A beautiful onboarding flow guides you through setting up your points of interest and importing your existing calendar events and reminders. Find and add nearby stores, pharmacies, and fuel stations with one tap.
+A beautiful onboarding flow guides you through:
+  - Setting up your points of interest
+  - Importing your existing calendar events and reminders
+  - Finding and adding nearby stores, pharmacies, and fuel stations with one tap
 
 • Beautiful, Intuitive Design
 A clean, modern interface that makes managing tasks a pleasure. Mark tasks complete with a tap, swipe to delete, and stay focused on what matters.
@@ -55,19 +58,25 @@ task,todo,reminder,AI,smart,location,productivity,Apple Intelligence,calendar,im
 WHAT'S NEW IN THIS VERSION:
 Initial Release - Smart Todo brings AI-powered task management to your fingertips!
 
-• Apple Intelligence - Enhanced task understanding on iPhone 15 Pro and later (iOS 26+)
-• Smart Auto-Location - AI automatically detects task categories and notifies at relevant locations
-• Calendar & Reminders Import - Seamlessly import and analyze your existing events and reminders
-• Intelligent Filtering - AI identifies actionable tasks, filtering out questions and notes
-• Automatic POI Matching - Imported tasks are matched to your saved locations
-• Intelligent category detection for pharmacies, fuel stations, supermarkets, and more
-• On-device AI processing for complete privacy
-• One-click "Add All Places" during setup
+Core Features:
+• Apple Intelligence powered task understanding (iPhone 15 Pro+, iOS 26+)
+• Smart Auto-Location - AI detects task categories and notifies at relevant locations
+• Calendar & Reminders Import with AI-powered actionable task filtering
+• Bulk select/deselect for quick import management
+• Automatic POI matching for imported tasks
+• Intelligent category detection (pharmacies, fuel stations, supermarkets, and more)
+
+Notifications:
+• Time-based reminders with customizable intervals (1-60 minutes)
+• Location-based notifications when near saved places
+• Smart notifications at all matching location categories
+
+Setup & Privacy:
 • Guided onboarding with POI setup and calendar import
-• Time-based task reminders with customizable intervals
-• Location-based notifications
+• One-click "Add All Places" during setup
 • Points of Interest discovery
 • Sign in with Apple authentication
+• On-device AI processing for complete privacy
 • Beautiful, intuitive design
 
 SUPPORT URL: https://bksourabh.github.io/ios-smart-todo/support.html

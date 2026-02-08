@@ -1,6 +1,6 @@
 # Privacy Policy for Smart Todo
 
-**Last Updated: February 7, 2026**
+**Last Updated: February 8, 2026**
 
 ## Overview
 
@@ -32,6 +32,7 @@ We use your information solely to:
 On supported devices (iPhone 15 Pro and later running iOS 26+), Smart Todo uses Apple Intelligence to:
 - Understand and categorize your tasks
 - Identify actionable items when importing from Calendar and Reminders
+- Filter out non-actionable content (questions, notes) during import
 - Match tasks to relevant locations
 
 All Apple Intelligence processing happens entirely on your device. Your task content is never sent to external servers for AI processing.
@@ -80,4 +81,4 @@ If you have questions about this Privacy Policy, please contact us at:
 
 ---
 
-*This privacy policy is effective as of February 7, 2026.*
+*This privacy policy is effective as of February 8, 2026.*

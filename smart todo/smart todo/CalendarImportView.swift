@@ -41,6 +41,7 @@ struct CalendarImportView: View {
     @State private var importedCount = 0
     @State private var importError: String?
     @State private var analysisProgress: Double = 0
+    @State private var selectionVersion: Int = 0  // Used to force List refresh
 
     // MARK: - Computed Properties
 
@@ -513,6 +514,15 @@ struct CalendarImportView: View {
 
     // MARK: - Item Selection Content
 
+    // Computed properties for filtered items
+    private var calendarItems: [ImportableItem] {
+        items.filter { $0.sourceType == .calendar }
+    }
+
+    private var reminderItems: [ImportableItem] {
+        items.filter { $0.sourceType == .reminder }
+    }
+
     private var itemSelectionContent: some View {
         VStack(spacing: 0) {
             // Header with counts
@@ -567,28 +577,31 @@ struct CalendarImportView: View {
             } else {
                 List {
                     // Calendar events section
-                    let calendarItems = items.filter { $0.sourceType == .calendar }
                     if !calendarItems.isEmpty {
                         Section(header: Text("Calendar Events (\(calendarItems.count))")) {
-                            ForEach(calendarItems.indices, id: \.self) { index in
-                                let globalIndex = items.firstIndex(where: { $0.id == calendarItems[index].id })!
-                                ImportItemRow(item: $items[globalIndex])
+                            ForEach(calendarItems, id: \.id) { item in
+                                ImportItemRowStateless(
+                                    item: item,
+                                    onToggle: { toggleItem(id: item.id) }
+                                )
                             }
                         }
                     }
 
                     // Reminders section
-                    let reminderItems = items.filter { $0.sourceType == .reminder }
                     if !reminderItems.isEmpty {
                         Section(header: Text("Reminders (\(reminderItems.count))")) {
-                            ForEach(reminderItems.indices, id: \.self) { index in
-                                let globalIndex = items.firstIndex(where: { $0.id == reminderItems[index].id })!
-                                ImportItemRow(item: $items[globalIndex])
+                            ForEach(reminderItems, id: \.id) { item in
+                                ImportItemRowStateless(
+                                    item: item,
+                                    onToggle: { toggleItem(id: item.id) }
+                                )
                             }
                         }
                     }
                 }
                 .listStyle(InsetGroupedListStyle())
+                .id(selectionVersion)  // Force refresh when selection changes
             }
 
             // Bottom buttons
@@ -621,16 +634,31 @@ struct CalendarImportView: View {
         }
     }
 
-    private func selectAllItems() {
-        for index in items.indices {
-            items[index].isSelected = true
+    private func toggleItem(id: String) {
+        if let index = items.firstIndex(where: { $0.id == id }) {
+            var updatedItems = items
+            updatedItems[index].isSelected.toggle()
+            items = updatedItems
+            selectionVersion += 1  // Force List to refresh
         }
     }
 
-    private func deselectAllItems() {
-        for index in items.indices {
-            items[index].isSelected = false
+    private func selectAllItems() {
+        items = items.map { item in
+            var updated = item
+            updated.isSelected = true
+            return updated
         }
+        selectionVersion += 1  // Force List to refresh
+    }
+
+    private func deselectAllItems() {
+        items = items.map { item in
+            var updated = item
+            updated.isSelected = false
+            return updated
+        }
+        selectionVersion += 1  // Force List to refresh
     }
 
     private func analyzeItems() {
@@ -956,15 +984,14 @@ struct CalendarImportView: View {
     }
 }
 
-// MARK: - Import Item Row
+// MARK: - Import Item Row (Stateless version for proper UI updates)
 
-struct ImportItemRow: View {
-    @Binding var item: ImportableItem
+struct ImportItemRowStateless: View {
+    let item: ImportableItem
+    let onToggle: () -> Void
 
     var body: some View {
-        Button(action: {
-            item.isSelected.toggle()
-        }) {
+        Button(action: onToggle) {
             HStack(spacing: 14) {
                 // Selection checkbox
                 ZStack {
@@ -1023,6 +1050,16 @@ struct ImportItemRow: View {
             .padding(.vertical, 4)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Import Item Row (Binding version for preview)
+
+struct ImportItemRow: View {
+    @Binding var item: ImportableItem
+
+    var body: some View {
+        ImportItemRowStateless(item: item, onToggle: { item.isSelected.toggle() })
     }
 }
 
