@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Todo - Support</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.7;
+            color: #1d1d1f;
+            background: #fff;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        .app-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #007AFF, #5856D6);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 40px;
+        }
+        h1 {
+            color: #1d1d1f;
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #86868b;
+            font-size: 1.2em;
+        }
+        h2 {
+            color: #1d1d1f;
+            font-size: 1.5em;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        h3 {
+            color: #1d1d1f;
+            font-size: 1.1em;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #424245;
+            margin-bottom: 15px;
+        }
+        a {
+            color: #007AFF;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .faq-item {
+            background: #f5f5f7;
+            padding: 20px 25px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+        .faq-item h3 {
+            margin-top: 0;
+            color: #1d1d1f;
+        }
+        .faq-item p {
+            margin-bottom: 0;
+        }
+        .contact-section {
+            background: linear-gradient(135deg, #007AFF10, #5856D610);
+            padding: 30px;
+            border-radius: 16px;
+            margin-top: 40px;
+            text-align: center;
+        }
+        .contact-section h2 {
+            border-bottom: none;
+            margin-top: 0;
+        }
+        .btn {
+            display: inline-block;
+            background: #007AFF;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background: #0056b3;
+            text-decoration: none;
+        }
+        .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e5e5;
+            text-align: center;
+            color: #86868b;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #86868b;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="app-icon">&#10003;</div>
+        <h1>Smart Todo</h1>
+        <p class="subtitle">Support Center</p>
+    </div>
+
+    <h2>Frequently Asked Questions</h2>
+
+    <div class="faq-item">
+        <h3>How do location-based reminders work?</h3>
+        <p>Smart Todo uses your device's location to notify you when you arrive at saved places. When you add a task like "Buy groceries," the app can remind you when you're near any of your saved supermarkets or grocery stores.</p>
+    </div>
+
+    <div class="faq-item">
+        <h3>Why do I need to allow "Always" location access?</h3>
+        <p>Location-based notifications require "Always Allow" permission to detect when you're near your saved places, even when the app is closed. Without this permission, you'll only receive time-based reminders. Your location data stays on your device and is never sent to external servers.</p>
+    </div>
+
+    <div class="faq-item">
+        <h3>How does AI task categorization work?</h3>
+        <p>On supported devices (iPhone 15 Pro and later running iOS 26+), Smart Todo uses Apple Intelligence to understand your tasks. The AI analyzes task descriptions to detect categories like "pharmacy," "grocery store," or "fuel station." All processing happens entirely on your device for complete privacy.</p>
+    </div>
+
+    <div class="faq-item">
+        <h3>How do I import from Calendar & Reminders?</h3>
+        <p>During initial setup or from the Settings menu, tap "Import from Calendar & Reminders." Grant the necessary permissions, select the items you want to import, and Smart Todo will analyze them using AI to identify actionable tasks and match them with your saved locations.</p>
+    </div>
+
+    <div class="faq-item">
+        <h3>What devices support Apple Intelligence features?</h3>
+        <p>Apple Intelligence features require iPhone 15 Pro or later running iOS 26 or newer. On older devices, Smart Todo uses keyword-based matching which still provides intelligent task categorization.</p>
+    </div>
+
+    <div class="faq-item">
+        <h3>How do I add Points of Interest?</h3>
+        <p>During setup, Smart Todo can automatically discover nearby places like stores, pharmacies, and fuel stations. You can also manually add locations from the Points of Interest section in the app by searching for places or dropping a pin on the map.</p>
+    </div>
+
+    <div class="faq-item">
+        <h3>Is my data secure?</h3>
+        <p>Yes! All your data (tasks, locations, preferences) is stored locally on your device using Apple's secure Core Data framework. We don't have servers that store your information, and AI processing happens entirely on-device. Your data never leaves your device.</p>
+    </div>
+
+    <div class="faq-item">
+        <h3>How do I reset the app or start over?</h3>
+        <p>You can reset the onboarding flow and tour from the Settings menu within the app. To completely reset all data, you can delete and reinstall the app.</p>
+    </div>
+
+    <div class="contact-section">
+        <h2>Need More Help?</h2>
+        <p>Can't find what you're looking for? We're here to help!</p>
+        <p>Report bugs, request features, or ask questions on our GitHub page.</p>
+        <a href="https://github.com/bksourabh/ios-smart-todo/issues" class="btn">Contact Support</a>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2026 Sourabh Mazumder. All rights reserved.</p>
+        <p><a href="privacy.html">Privacy Policy</a></p>
+    </div>
+</body>
+</html>
