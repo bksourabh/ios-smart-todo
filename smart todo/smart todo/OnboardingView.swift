@@ -387,25 +387,28 @@ struct POISetupView: View {
                     currentStep = .poiSelection
                 }
             } else if newStatus == .denied || newStatus == .restricted {
-                // User denied - proceed to POI selection
+                // User denied - proceed to POI selection (location features will be limited)
                 withAnimation {
                     currentStep = .poiSelection
                 }
             }
         case 2:
-            // We requested "Always" permission
+            // We requested "Always" permission - always proceed to POI selection after system dialog
+            // Whether granted or not, user has made their choice
+            withAnimation {
+                currentStep = .poiSelection
+            }
+        default:
+            // No phase set - check if we should auto-advance
             if newStatus == .authorizedAlways {
                 withAnimation {
                     currentStep = .poiSelection
                 }
-            } else {
-                // User didn't upgrade to Always - proceed anyway
+            } else if newStatus == .authorizedWhenInUse && currentStep == .locationPermission {
                 withAnimation {
-                    currentStep = .poiSelection
+                    currentStep = .alwaysPermission
                 }
             }
-        default:
-            break
         }
     }
 
@@ -472,12 +475,12 @@ struct POISetupView: View {
 
             Spacer()
 
-            // Buttons
+            // Buttons - Single button that proceeds to permission request
             VStack(spacing: 12) {
                 Button(action: requestWhenInUsePermission) {
                     HStack(spacing: 8) {
-                        Image(systemName: "location.fill")
-                        Text("Enable Location")
+                        Text("Continue")
+                        Image(systemName: "chevron.right")
                     }
                     .font(.headline)
                     .foregroundColor(.white)
@@ -487,13 +490,6 @@ struct POISetupView: View {
                     .cornerRadius(14)
                     .shadow(color: Color.blue.opacity(0.4), radius: 8, x: 0, y: 4)
                 }
-
-                Button(action: skipLocationPermission) {
-                    Text("Skip for Now")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.bottom, 8)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -574,12 +570,12 @@ struct POISetupView: View {
 
             Spacer()
 
-            // Buttons
+            // Single button that proceeds to permission request
             VStack(spacing: 12) {
                 Button(action: requestAlwaysPermission) {
                     HStack(spacing: 8) {
-                        Image(systemName: "location.fill")
-                        Text("Allow Always")
+                        Text("Continue")
+                        Image(systemName: "chevron.right")
                     }
                     .font(.headline)
                     .foregroundColor(.white)
@@ -589,14 +585,6 @@ struct POISetupView: View {
                     .cornerRadius(14)
                     .shadow(color: Color.purple.opacity(0.4), radius: 8, x: 0, y: 4)
                 }
-
-                Button(action: skipAlwaysPermission) {
-                    Text("Skip (Location notifications will be disabled)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.bottom, 8)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -629,23 +617,48 @@ struct POISetupView: View {
 
     private func requestWhenInUsePermission() {
         permissionPhase = 1
-        locationManager.requestWhenInUsePermission()
+        // Check current status and request permission
+        let currentStatus = locationManager.authorizationStatus
+        if currentStatus == .notDetermined {
+            locationManager.requestWhenInUsePermission()
+        } else if currentStatus == .authorizedWhenInUse {
+            // Already have When In Use, go to Always permission step
+            withAnimation {
+                currentStep = .alwaysPermission
+            }
+        } else if currentStatus == .authorizedAlways {
+            // Already have Always, go to POI selection
+            withAnimation {
+                currentStep = .poiSelection
+            }
+        } else {
+            // Denied or restricted - go to POI selection
+            withAnimation {
+                currentStep = .poiSelection
+            }
+        }
     }
 
     private func requestAlwaysPermission() {
         permissionPhase = 2
-        locationManager.requestAlwaysPermissionUpgrade()
-    }
-
-    private func skipLocationPermission() {
-        withAnimation {
-            currentStep = .poiSelection
-        }
-    }
-
-    private func skipAlwaysPermission() {
-        withAnimation {
-            currentStep = .poiSelection
+        // Check current status and request permission
+        let currentStatus = locationManager.authorizationStatus
+        if currentStatus == .authorizedWhenInUse {
+            // Request upgrade to Always - this will show the system dialog
+            locationManager.requestAlwaysPermissionUpgrade()
+        } else if currentStatus == .authorizedAlways {
+            // Already have Always, go to POI selection
+            withAnimation {
+                currentStep = .poiSelection
+            }
+        } else if currentStatus == .notDetermined {
+            // Request Always directly
+            locationManager.requestAlwaysPermissionUpgrade()
+        } else {
+            // Denied or restricted - go to POI selection
+            withAnimation {
+                currentStep = .poiSelection
+            }
         }
     }
 
