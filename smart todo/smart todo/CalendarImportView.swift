@@ -230,12 +230,6 @@ struct CalendarImportView: View {
                     .cornerRadius(14)
                 }
                 .disabled(!canProceedFromPermissions)
-
-                Button("Skip for Now") {
-                    dismiss()
-                }
-                .font(.subheadline)
-                .foregroundColor(.secondary)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -276,7 +270,7 @@ struct CalendarImportView: View {
                     .foregroundColor(.green)
                     .font(.system(size: 24))
             } else {
-                Button("Enable") {
+                Button("Continue") {
                     action()
                 }
                 .buttonStyle(.borderedProminent)
@@ -1157,7 +1151,7 @@ struct CalendarImportSetupView: View {
                 Button(action: {
                     isSetupComplete = true
                 }) {
-                    Text("Skip for Now")
+                    Text("Set Up Later")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }

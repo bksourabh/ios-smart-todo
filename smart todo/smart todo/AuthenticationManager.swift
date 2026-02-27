@@ -7,6 +7,7 @@
 
 import Foundation
 import AuthenticationServices
+import CoreData
 import SwiftUI
 import Combine
 
@@ -81,6 +82,27 @@ final class AuthenticationManager: NSObject, ObservableObject {
         UserDefaults.standard.removeObject(forKey: userIdKey)
         UserDefaults.standard.removeObject(forKey: userNameKey)
         UserDefaults.standard.removeObject(forKey: userEmailKey)
+    }
+
+    // Delete account — clears all local data and signs out
+    func deleteAccount() {
+        let context = PersistenceController.shared.container.viewContext
+
+        // Delete all Core Data entities
+        let entityNames = ["TodoTask", "Group", "PointOfInterest"]
+        for entityName in entityNames {
+            let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+            let batchDelete = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+            try? context.execute(batchDelete)
+        }
+        try? context.save()
+
+        // Clear all UserDefaults
+        if let appDomain = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: appDomain)
+        }
+
+        signOut()
     }
 
     // Save user credentials
@@ -340,6 +362,7 @@ struct UserProfileView: View {
     @ObservedObject var authManager: AuthenticationManager
     @Environment(\.dismiss) private var dismiss
     @State private var showingSignOutAlert = false
+    @State private var showingDeleteAccountAlert = false
     @State private var showingSettings = false
 
     private var appVersion: String {
@@ -435,7 +458,7 @@ struct UserProfileView: View {
 
                 // Support Section
                 Section {
-                    Link(destination: URL(string: "https://github.com/anthropics/claude-code/issues")!) {
+                    Link(destination: URL(string: "https://github.com/bksourabh/ios-smart-todo/issues")!) {
                         Label {
                             HStack {
                                 Text("Send Feedback")
@@ -478,11 +501,27 @@ struct UserProfileView: View {
                             Spacer()
                         }
                     }
+                }
+
+                // Delete Account Section
+                Section {
+                    Button(action: {
+                        showingDeleteAccountAlert = true
+                    }) {
+                        HStack {
+                            Spacer()
+                            Label("Delete Account", systemImage: "person.crop.circle.badge.minus")
+                                .foregroundColor(.red)
+                            Spacer()
+                        }
+                    }
+                } header: {
+                    Text("Danger Zone")
                 } footer: {
-                    Text("Made with care for productivity enthusiasts")
+                    Text("Deleting your account will permanently erase all your tasks, locations, and app data from this device.\n\nMade with care for productivity enthusiasts")
                         .frame(maxWidth: .infinity)
                         .multilineTextAlignment(.center)
-                        .padding(.top, 20)
+                        .padding(.top, 8)
                 }
             }
             .navigationTitle("Account")
@@ -503,6 +542,15 @@ struct UserProfileView: View {
                 }
             } message: {
                 Text("You will need to sign in again to access your tasks.")
+            }
+            .alert("Delete Account?", isPresented: $showingDeleteAccountAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete Account", role: .destructive) {
+                    authManager.deleteAccount()
+                    dismiss()
+                }
+            } message: {
+                Text("This will permanently delete all your tasks, locations, and app data from this device. This action cannot be undone.")
             }
         }
         .navigationViewStyle(.stack)
