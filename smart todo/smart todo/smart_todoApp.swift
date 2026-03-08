@@ -20,8 +20,6 @@ struct smart_todoApp: App {
     @StateObject private var tourManager = GuidedTourManager.shared
     @ObservedObject private var locationManager = LocationManager.shared
     @State private var pendingSharedText: String?
-    @State private var showingImportBanner = false
-    @State private var importedTaskCount = 0
 
     private let appGroupID = "group.com.helpingthoughtgames.smart-todo"
     private let importFileName = "PendingImport.json"
@@ -35,9 +33,6 @@ struct smart_todoApp: App {
                 .animation(.easeInOut, value: tourManager.isCalendarImportComplete)
                 .onOpenURL { url in
                     handleIncomingURL(url)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                    checkForSharedImport()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     checkForSharedImport()
@@ -53,21 +48,20 @@ struct smart_todoApp: App {
     private func checkForSharedImport() {
         guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else { return }
         let fileURL = containerURL.appendingPathComponent(importFileName)
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
 
         do {
             let data = try Data(contentsOf: fileURL)
             let importData = try JSONDecoder().decode(SharedImportPayload.self, from: data)
-            try FileManager.default.removeItem(at: fileURL)
+            try? FileManager.default.removeItem(at: fileURL)
             importTasksFromShareExtension(importData)
         } catch {
-            try? FileManager.default.removeItem(at: fileURL)
+            // File doesn't exist or isn't valid JSON — nothing to import
         }
     }
 
     private func importTasksFromShareExtension(_ payload: SharedImportPayload) {
         let context = persistenceController.container.viewContext
-        var count = 0
+        var createdTasks: [(TodoTask, SharedImportCategory?)] = []
 
         for group in payload.groups {
             let todoTask = TodoTask(context: context)
@@ -80,7 +74,6 @@ struct smart_todoApp: App {
             todoTask.locationNotificationDistance = 15
 
             if let category = group.locationCategory {
-                // Map share extension category to main app category
                 todoTask.smartLocationCategory = category.rawValue
             }
 
@@ -94,28 +87,19 @@ struct smart_todoApp: App {
                 subTask.parentTask = todoTask
             }
 
-            count += 1
+            createdTasks.append((todoTask, group.locationCategory))
         }
 
         do {
             try context.save()
-            importedTaskCount = count
-            showingImportBanner = true
 
-            // Schedule smart notifications for imported tasks
-            for group in payload.groups {
-                if let categoryStr = group.locationCategory?.rawValue,
+            // Schedule smart notifications using already-created task references
+            for (task, importCategory) in createdTasks {
+                if let categoryStr = importCategory?.rawValue,
                    let category = LocationCategory(rawValue: categoryStr) {
                     let matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: [category], in: context)
                     if !matchingPOIs.isEmpty {
-                        // Find the most recently created task with this category
-                        let fetchRequest: NSFetchRequest<TodoTask> = TodoTask.fetchRequest()
-                        fetchRequest.predicate = NSPredicate(format: "smartLocationCategory == %@", categoryStr)
-                        fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \TodoTask.createdAt, ascending: false)]
-                        fetchRequest.fetchLimit = 1
-                        if let task = try? context.fetch(fetchRequest).first {
-                            notificationManager.scheduleSmartNotifications(for: task, matchingPOIs: matchingPOIs)
-                        }
+                        notificationManager.scheduleSmartNotifications(for: task, matchingPOIs: matchingPOIs)
                     }
                 }
             }

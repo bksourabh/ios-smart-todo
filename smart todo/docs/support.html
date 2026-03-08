@@ -3,188 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Support - Smart Todo</title>
+    <title>Smart Todo - Support</title>
     <style>
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             max-width: 800px;
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            padding: 40px;
+            padding: 40px 20px;
+            line-height: 1.7;
+            color: #1d1d1f;
+            background: #fff;
         }
         .header {
             text-align: center;
-            margin-bottom: 40px;
-            padding-bottom: 30px;
-            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 50px;
         }
-        .logo {
-            font-size: 48px;
-            margin-bottom: 10px;
+        .app-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #007AFF, #5856D6);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 40px;
         }
         h1 {
-            color: #1a1a2e;
-            font-size: 32px;
+            color: #1d1d1f;
+            font-size: 2.5em;
+            font-weight: 700;
             margin-bottom: 10px;
         }
+        .subtitle {
+            color: #86868b;
+            font-size: 1.2em;
+        }
         h2 {
-            color: #667eea;
-            font-size: 22px;
-            margin: 30px 0 15px 0;
+            color: #1d1d1f;
+            font-size: 1.5em;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        h3 {
+            color: #1d1d1f;
+            font-size: 1.1em;
+            margin-top: 25px;
+            margin-bottom: 10px;
         }
         p {
+            color: #424245;
             margin-bottom: 15px;
-            color: #555;
+        }
+        a {
+            color: #007AFF;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
         }
         .faq-item {
-            background: #f8f9fa;
-            padding: 20px;
+            background: #f5f5f7;
+            padding: 20px 25px;
             border-radius: 12px;
             margin-bottom: 15px;
         }
-        .faq-item.featured {
-            background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
-            border: 1px solid #667eea30;
-        }
         .faq-item h3 {
-            color: #333;
-            font-size: 16px;
-            margin-bottom: 10px;
+            margin-top: 0;
+            color: #1d1d1f;
         }
         .faq-item p {
             margin-bottom: 0;
-            font-size: 14px;
         }
-        .new-badge {
-            display: inline-block;
-            background: #667eea;
-            color: white;
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-left: 8px;
-            vertical-align: middle;
-        }
-        .contact-box {
-            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-            padding: 25px;
-            border-radius: 12px;
-            margin: 30px 0;
+        .contact-section {
+            background: linear-gradient(135deg, #007AFF10, #5856D610);
+            padding: 30px;
+            border-radius: 16px;
+            margin-top: 40px;
             text-align: center;
         }
-        .contact-box a {
+        .contact-section h2 {
+            border-bottom: none;
+            margin-top: 0;
+        }
+        .btn {
             display: inline-block;
-            background: #667eea;
+            background: #007AFF;
             color: white;
             padding: 12px 30px;
-            border-radius: 25px;
-            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
             margin-top: 15px;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: background 0.2s;
         }
-        .contact-box a:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-        }
-        .back-link {
-            text-align: center;
-            margin-top: 30px;
-        }
-        .back-link a {
-            color: #667eea;
+        .btn:hover {
+            background: #0056b3;
             text-decoration: none;
+        }
+        .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e5e5;
+            text-align: center;
+            color: #86868b;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #86868b;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">✓</div>
-            <h1>Support</h1>
-            <p>Smart Todo App</p>
-        </div>
+    <div class="header">
+        <div class="app-icon">&#10003;</div>
+        <h1>Smart Todo</h1>
+        <p class="subtitle">Support Center</p>
+    </div>
 
-        <h2>Apple Intelligence</h2>
+    <h2>Frequently Asked Questions</h2>
 
-        <div class="faq-item featured">
-            <h3>What is Apple Intelligence in Smart Todo? <span class="new-badge">NEW</span></h3>
-            <p>On supported devices (iPhone 15 Pro and later with iOS 26+), Smart Todo uses Apple's on-device AI to understand your tasks with natural language processing. This means you can type tasks like "Pick up mom's heart medication" and the app will intelligently recognize this relates to pharmacies, even without explicit keywords.</p>
-        </div>
+    <div class="faq-item">
+        <h3>How do I import tasks from Apple Notes?</h3>
+        <p>You have two options: (1) Open Apple Notes, select your text, tap Share, and choose Smart Todo. The Share Extension analyzes and groups your items right there. (2) In Smart Todo, tap the notes icon in the toolbar, then paste your text. Both methods use AI to group items by location and create tasks with subtasks automatically.</p>
+    </div>
 
-        <div class="faq-item featured">
-            <h3>Which devices support Apple Intelligence?</h3>
-            <p>Apple Intelligence requires iPhone 15 Pro or later, iPad with M1 chip or later, or Mac with M1 chip or later, running iOS 26 / iPadOS 26 / macOS 26 or later. On older devices, Smart Todo automatically uses keyword-based matching which still works great for most tasks.</p>
-        </div>
+    <div class="faq-item">
+        <h3>Why does the Share Extension ask for Face ID?</h3>
+        <p>The Share Extension uses Face ID (or device passcode) to verify your identity before importing notes into Smart Todo. This ensures only you can add tasks to your account. You must have an active Smart Todo profile (signed in with Apple ID) for the Share Extension to work.</p>
+    </div>
 
-        <div class="faq-item featured">
-            <h3>Is my data sent to Apple's servers for AI processing?</h3>
-            <p>No. All Apple Intelligence processing happens entirely on your device. Your tasks, locations, and personal data never leave your device for AI analysis. This is one of the key privacy benefits of Apple Intelligence.</p>
-        </div>
+    <div class="faq-item">
+        <h3>How do subtasks work?</h3>
+        <p>Tasks can have subtasks with individual checkboxes. When you import from Notes, each item becomes a subtask under a location-based parent task. You can also add, edit, or remove subtasks manually from the Add/Edit Task screen. When all subtasks are checked off, the parent task completes automatically.</p>
+    </div>
 
-        <h2>Smart Auto-Location</h2>
+    <div class="faq-item">
+        <h3>How do location-based reminders work?</h3>
+        <p>Smart Todo uses your device's location to notify you when you arrive at saved places. When you add a task like "Buy groceries," the app can remind you when you're near any of your saved supermarkets or grocery stores.</p>
+    </div>
 
-        <div class="faq-item">
-            <h3>How does Smart Auto-Location work?</h3>
-            <p>When you add a task with Smart mode (the default), the app automatically analyzes your task description and detects relevant location categories. For example, if you add "Buy medicines", Smart Todo will notify you when you're near ANY of your saved pharmacies. No manual location selection needed!</p>
-        </div>
+    <div class="faq-item">
+        <h3>Why do I need to allow "Always" location access?</h3>
+        <p>Location-based notifications require "Always Allow" permission to detect when you're near your saved places, even when the app is closed. Without this permission, you'll only receive time-based reminders. Your location data stays on your device and is never sent to external servers.</p>
+    </div>
 
-        <div class="faq-item">
-            <h3>What categories does Smart Auto-Location support?</h3>
-            <p>Smart Todo recognizes many categories including: Pharmacies (medicines, prescriptions), Fuel Stations (petrol, gas), Supermarkets (groceries, shopping), Restaurants, Banks, Post Offices, Hardware Stores, Electronics Stores, and Clothing Stores.</p>
-        </div>
+    <div class="faq-item">
+        <h3>How does AI task categorization work?</h3>
+        <p>On supported devices (iPhone 15 Pro and later running iOS 26+), Smart Todo uses Apple Intelligence to understand your tasks. The AI analyzes task descriptions to detect categories like "pharmacy," "grocery store," or "fuel station." All processing happens entirely on your device for complete privacy.</p>
+    </div>
 
-        <h2>Location & Notifications</h2>
+    <div class="faq-item">
+        <h3>How do I import from Calendar & Reminders?</h3>
+        <p>During initial setup or from the Settings menu, tap "Import from Calendar & Reminders." Grant the necessary permissions, select the items you want to import, and Smart Todo will analyze them using AI to identify actionable tasks and match them with your saved locations.</p>
+    </div>
 
-        <div class="faq-item">
-            <h3>How do I enable location-based reminders?</h3>
-            <p>Go to iOS Settings → Smart Todo → Location, and select "Always". This allows the app to notify you when you arrive at saved locations, even when the app is closed.</p>
-        </div>
+    <div class="faq-item">
+        <h3>What devices support Apple Intelligence features?</h3>
+        <p>Apple Intelligence features require iPhone 15 Pro or later running iOS 26 or newer. On older devices, Smart Todo uses keyword-based matching which still provides intelligent task categorization.</p>
+    </div>
 
-        <div class="faq-item">
-            <h3>Why am I not receiving notifications?</h3>
-            <p>Make sure notifications are enabled in iOS Settings → Smart Todo → Notifications. Also check that Do Not Disturb mode is turned off.</p>
-        </div>
+    <div class="faq-item">
+        <h3>How do I add Points of Interest?</h3>
+        <p>During setup, Smart Todo can automatically discover nearby places like stores, pharmacies, and fuel stations. You can also manually add locations from the Points of Interest section in the app by searching for places or dropping a pin on the map.</p>
+    </div>
 
-        <div class="faq-item">
-            <h3>How do I add a point of interest?</h3>
-            <p>Tap the location pin icon in the top navigation bar. You can either use Suggestions to find nearby places, or tap the + button to manually add a location.</p>
-        </div>
+    <div class="faq-item">
+        <h3>Is my data secure?</h3>
+        <p>Yes! All your data (tasks, locations, preferences) is stored locally on your device using Apple's secure Core Data framework. We don't have servers that store your information, and AI processing happens entirely on-device. Your data never leaves your device.</p>
+    </div>
 
-        <h2>Data & Privacy</h2>
+    <div class="faq-item">
+        <h3>Will I lose my tasks when updating to a new version?</h3>
+        <p>No. Smart Todo automatically migrates your existing tasks, groups, and saved locations when you update. All your data is preserved seamlessly.</p>
+    </div>
 
-        <div class="faq-item">
-            <h3>Is my data backed up?</h3>
-            <p>Smart Todo stores all data locally on your device. Your data is included in your iCloud or iTunes backups if you have those enabled.</p>
-        </div>
+    <div class="faq-item">
+        <h3>How do I delete my account?</h3>
+        <p>Go to your profile (top-left avatar), scroll to the Danger Zone section, and tap "Delete Account." This permanently erases all tasks, locations, and app data from your device.</p>
+    </div>
 
-        <div class="faq-item">
-            <h3>How do I delete my account?</h3>
-            <p>Simply uninstall the app to remove all your data. You can also manage your Sign in with Apple credentials in iOS Settings → Apple ID → Password & Security → Apps Using Apple ID.</p>
-        </div>
+    <div class="faq-item">
+        <h3>How do I reset the app or start over?</h3>
+        <p>You can reset the onboarding flow and tour from the Settings menu within the app. To completely reset all data, use Delete Account or delete and reinstall the app.</p>
+    </div>
 
-        <div class="contact-box">
-            <h2 style="margin-top: 0;">Need More Help?</h2>
-            <p>If you have questions or found a bug, please let us know!</p>
-            <a href="https://github.com/bksourabh/ios-smart-todo/issues">Report an Issue on GitHub</a>
-        </div>
+    <div class="contact-section">
+        <h2>Need More Help?</h2>
+        <p>Can't find what you're looking for? We're here to help!</p>
+        <p>Send us an email and we'll get back to you as soon as possible.</p>
+        <a href="mailto:bksourabh@gmail.com?subject=Smart%20Todo%20Support" class="btn">Email Support</a>
+        <br><br>
+        <p style="font-size: 0.9em; color: #86868b;">You can also report bugs or request features on our <a href="https://github.com/bksourabh/ios-smart-todo/issues">GitHub page</a>.</p>
+    </div>
 
-        <div class="back-link">
-            <a href="index.html">← Back to Home</a>
-        </div>
+    <div class="footer">
+        <p>&copy; 2026 Sourabh Mazumder. All rights reserved.</p>
+        <p><a href="privacy.html">Privacy Policy</a></p>
     </div>
 </body>
 </html>

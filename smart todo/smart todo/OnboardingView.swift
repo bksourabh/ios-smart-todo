@@ -26,6 +26,18 @@ struct OnboardingView: View {
             features: []
         ),
         OnboardingPage(
+            icon: "note.text",
+            iconColor: .orange,
+            title: "Import from Notes",
+            subtitle: "Share text from Apple Notes or paste it directly. AI groups items by where they can be completed and creates tasks with subtasks automatically.",
+            features: [
+                FeatureItem(icon: "square.and.arrow.up", text: "Share directly from Apple Notes"),
+                FeatureItem(icon: "wand.and.stars", text: "AI groups items by location"),
+                FeatureItem(icon: "checklist", text: "Subtasks with individual checkboxes"),
+                FeatureItem(icon: "faceid", text: "Secured with Face ID")
+            ]
+        ),
+        OnboardingPage(
             icon: "list.bullet.clipboard.fill",
             iconColor: .green,
             title: "Organize Your Tasks",
@@ -37,47 +49,15 @@ struct OnboardingView: View {
             ]
         ),
         OnboardingPage(
-            icon: "calendar.badge.plus",
-            iconColor: .red,
-            title: "Import from Calendar & Reminders",
-            subtitle: "Easily bring in your existing calendar events and reminders. AI will automatically categorize them for smart notifications. You'll have the option to import after setup.",
-            features: [
-                FeatureItem(icon: "calendar", text: "Import calendar events"),
-                FeatureItem(icon: "list.bullet", text: "Import reminders"),
-                FeatureItem(icon: "sparkles", text: "AI-powered categorization")
-            ]
-        ),
-        OnboardingPage(
-            icon: "note.text",
-            iconColor: .orange,
-            title: "Import from Notes",
-            subtitle: "Share text from Apple Notes or paste it directly. Apple Intelligence groups items by where they can be completed and creates tasks with subtasks.",
-            features: [
-                FeatureItem(icon: "square.and.arrow.up", text: "Share directly from Apple Notes"),
-                FeatureItem(icon: "wand.and.stars", text: "AI groups items by location"),
-                FeatureItem(icon: "checklist", text: "Subtasks with individual checkboxes")
-            ]
-        ),
-        OnboardingPage(
             icon: "bell.badge.fill",
-            iconColor: .yellow,
+            iconColor: .purple,
             title: "Smart Notifications",
-            subtitle: "Get reminded at the right time with flexible notification options.",
+            subtitle: "Get reminded at the right time or the right place. Time-based and location-based alerts keep you on track.",
             features: [
                 FeatureItem(icon: "clock", text: "Time-based reminders"),
-                FeatureItem(icon: "calendar", text: "Set due dates"),
-                FeatureItem(icon: "slider.horizontal.3", text: "Customize notification timing")
-            ]
-        ),
-        OnboardingPage(
-            icon: "location.fill",
-            iconColor: .purple,
-            title: "Location-Based Alerts",
-            subtitle: "Get notified when you're near important places. Perfect for errands and location-specific tasks.",
-            features: [
-                FeatureItem(icon: "mappin.circle", text: "Save points of interest"),
-                FeatureItem(icon: "location.magnifyingglass", text: "Discover nearby places"),
-                FeatureItem(icon: "bell.and.waves.left.and.right", text: "Proximity notifications")
+                FeatureItem(icon: "mappin.circle", text: "Location-based alerts near saved places"),
+                FeatureItem(icon: "calendar.badge.plus", text: "Import from Calendar & Reminders"),
+                FeatureItem(icon: "sparkles", text: "AI-powered categorization")
             ]
         ),
         OnboardingPage(

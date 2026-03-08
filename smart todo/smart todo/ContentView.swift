@@ -74,10 +74,8 @@ struct ContentView: View {
                 VStack(spacing: 0) {
                     if tasks.isEmpty {
                         emptyStateView
-                            .tourHighlight(for: .taskList)
                     } else {
                         taskListView
-                            .tourHighlight(for: .taskList)
                     }
                 }
                 .background(Color(UIColor.systemGroupedBackground))
@@ -280,7 +278,6 @@ struct ContentView: View {
                 }
             }
         }
-        .tourHighlight(for: .profileButton)
         .accessibilityLabel("User profile")
         .accessibilityHint("Opens your account settings")
     }

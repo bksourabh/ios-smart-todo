@@ -13,27 +13,21 @@ import UIKit
 
 enum TourStep: Int, CaseIterable {
     case welcome
-    case addTaskButton
     case notesImportButton
-    case taskList
+    case addTaskButton
     case locationButton
-    case profileButton
     case complete
 
     var title: String {
         switch self {
         case .welcome:
             return "Welcome!"
-        case .addTaskButton:
-            return "Add Your First Task"
         case .notesImportButton:
             return "Import from Notes"
-        case .taskList:
-            return "Your Tasks"
+        case .addTaskButton:
+            return "Add a Task"
         case .locationButton:
             return "Points of Interest"
-        case .profileButton:
-            return "Your Profile"
         case .complete:
             return "You're All Set!"
         }
@@ -43,18 +37,14 @@ enum TourStep: Int, CaseIterable {
         switch self {
         case .welcome:
             return "Let's take a quick tour of Smart Todo. This will only take a moment!"
-        case .addTaskButton:
-            return "Tap the + button to create a new task. You can add details like due dates and notification preferences."
         case .notesImportButton:
-            return "Paste or share text from Apple Notes. Apple Intelligence groups items by location — like groceries to the supermarket, medicines to the pharmacy — and creates tasks with subtasks."
-        case .taskList:
-            return "Your tasks will appear here. Tap the circle to mark them complete, or tap the task to edit it. Tasks with subtasks show checkboxes for each item."
+            return "Share text from Apple Notes or paste it here. AI groups items by location — like groceries to the supermarket, medicines to the pharmacy — and creates tasks with subtasks."
+        case .addTaskButton:
+            return "Tap + to create a task manually. Set due dates, choose time or location-based notifications, and add subtasks."
         case .locationButton:
-            return "Manage your saved locations here. Add places like home, work, or stores for location-based reminders."
-        case .profileButton:
-            return "Access your account settings and sign out from here."
+            return "Save places like home, work, or stores. You'll get notified when you're near a location with pending tasks."
         case .complete:
-            return "You're ready to start using Smart Todo! Add your first task to get started. You can also share text directly from Notes using the share menu."
+            return "You're ready to go! Try importing from Notes using the share menu, or tap + to create your first task."
         }
     }
 
@@ -62,16 +52,12 @@ enum TourStep: Int, CaseIterable {
         switch self {
         case .welcome:
             return "hand.wave.fill"
-        case .addTaskButton:
-            return "plus.circle.fill"
         case .notesImportButton:
             return "note.text"
-        case .taskList:
-            return "list.bullet"
+        case .addTaskButton:
+            return "plus.circle.fill"
         case .locationButton:
             return "mappin.circle.fill"
-        case .profileButton:
-            return "person.circle.fill"
         case .complete:
             return "checkmark.seal.fill"
         }
@@ -81,47 +67,17 @@ enum TourStep: Int, CaseIterable {
         switch self {
         case .welcome:
             return .blue
-        case .addTaskButton:
-            return .green
         case .notesImportButton:
             return .orange
-        case .taskList:
-            return .orange
+        case .addTaskButton:
+            return .green
         case .locationButton:
             return .purple
-        case .profileButton:
-            return .blue
         case .complete:
             return .green
         }
     }
 
-    var highlightAnchor: TourHighlightAnchor {
-        switch self {
-        case .welcome:
-            return .center
-        case .addTaskButton:
-            return .topRight
-        case .notesImportButton:
-            return .topRight
-        case .taskList:
-            return .center
-        case .locationButton:
-            return .topRight
-        case .profileButton:
-            return .topLeft
-        case .complete:
-            return .center
-        }
-    }
-}
-
-enum TourHighlightAnchor {
-    case topLeft
-    case topRight
-    case center
-    case bottomLeft
-    case bottomRight
 }
 
 // MARK: - Guided Tour Manager
@@ -328,27 +284,19 @@ struct TourTooltipCard: View {
     private var tooltipPosition: TooltipPosition {
         switch step {
         case .welcome, .complete:
-            // Center-focused steps: show tooltip in center
             return .center
-        case .addTaskButton, .notesImportButton, .locationButton, .profileButton:
-            // Toolbar buttons at top: ALWAYS show tooltip below (in upper-middle area)
+        case .addTaskButton, .notesImportButton, .locationButton:
             return .belowHighlight
-        case .taskList:
-            // Task list area: show tooltip at bottom
-            return .bottom
         }
     }
 
     private enum TooltipPosition {
         case center
         case belowHighlight
-        case bottom
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let safeAreaBottom = geometry.safeAreaInsets.bottom
-
+        GeometryReader { _ in
             ZStack {
                 VStack {
                     switch tooltipPosition {
@@ -358,16 +306,10 @@ struct TourTooltipCard: View {
                         Spacer()
 
                     case .belowHighlight:
-                        // Position below the toolbar with consistent spacing
                         Spacer()
                             .frame(height: max(120, (highlightFrame?.maxY ?? 100) + 20))
                         tooltipCard
                         Spacer()
-
-                    case .bottom:
-                        Spacer()
-                        tooltipCard
-                            .padding(.bottom, safeAreaBottom + 100)
                     }
                 }
             }

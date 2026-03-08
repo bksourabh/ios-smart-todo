@@ -105,7 +105,7 @@
         <div class="app-icon">&#10003;</div>
         <h1>Smart Todo</h1>
         <p class="subtitle">Privacy Policy</p>
-        <p class="last-updated">Last Updated: February 11, 2026</p>
+        <p class="last-updated">Last Updated: March 9, 2026</p>
     </div>
 
     <h2>Overview</h2>
@@ -120,7 +120,9 @@
     <h3>Information You Provide</h3>
     <ul>
         <li><strong>Account Information:</strong> When you sign in with Apple, we receive your Apple ID user identifier and optionally your name and email (if you choose to share them). This information is stored locally on your device.</li>
-        <li><strong>Task Data:</strong> All tasks, due dates, and notification preferences you create are stored locally on your device.</li>
+        <li><strong>Task Data:</strong> All tasks, subtasks, due dates, and notification preferences you create are stored locally on your device.</li>
+        <li><strong>Notes Data:</strong> When you share text from Apple Notes (via the Share Extension) or paste text into the Notes Import screen, the content is processed entirely on-device to group items and create tasks with subtasks. Shared text is temporarily stored in the App Group container for transfer between the Share Extension and the main app, then deleted immediately after import.</li>
+        <li><strong>Biometric Data:</strong> The Share Extension uses Face ID or device passcode to authenticate you before importing notes. Biometric data is handled entirely by Apple's LocalAuthentication framework and is never accessed or stored by Smart Todo.</li>
         <li><strong>Location Data:</strong> If you enable location-based reminders, we access your device's location to trigger notifications when you're near saved places. Location data is processed on-device and is not transmitted to external servers.</li>
         <li><strong>Calendar & Reminders Data:</strong> If you choose to import from your Calendar or Reminders, we access this data solely to create tasks within Smart Todo. Calendar and Reminders data is processed on-device and is not transmitted to external servers.</li>
     </ul>
@@ -133,10 +135,11 @@
     <h2>How We Use Your Information</h2>
     <p>We use your information solely to:</p>
     <ul>
-        <li>Provide task management functionality</li>
+        <li>Provide task and subtask management functionality</li>
+        <li>Import and group text from Apple Notes into tasks with subtasks (via Share Extension or in-app)</li>
+        <li>Authenticate your identity via Sign in with Apple and Face ID (Share Extension)</li>
         <li>Send you notification reminders at scheduled times</li>
         <li>Send you location-based reminders when you're near saved places</li>
-        <li>Authenticate your identity via Sign in with Apple</li>
         <li>Import and analyze Calendar events and Reminders to create tasks (when you choose to use this feature)</li>
         <li>Analyze task content using on-device Apple Intelligence to detect categories and match locations (all processing happens locally on your device)</li>
     </ul>
@@ -145,6 +148,7 @@
     <p>On supported devices (iPhone 15 Pro and later running iOS 26+), Smart Todo uses Apple Intelligence to:</p>
     <ul>
         <li>Understand and categorize your tasks</li>
+        <li>Group imported notes by location category (e.g., supermarket, pharmacy, hardware store)</li>
         <li>Identify actionable items when importing from Calendar and Reminders</li>
         <li>Filter out non-actionable content (questions, notes) during import</li>
         <li>Match tasks to relevant locations</li>
@@ -169,15 +173,18 @@
     <p>The app uses the following Apple services:</p>
     <ul>
         <li><strong>Sign in with Apple:</strong> For secure authentication</li>
+        <li><strong>LocalAuthentication (Face ID / Touch ID):</strong> For verifying identity in the Share Extension</li>
         <li><strong>Apple Maps:</strong> For location search and display</li>
         <li><strong>Local Notifications:</strong> For task reminders</li>
         <li><strong>EventKit:</strong> For reading Calendar events and Reminders (with your permission)</li>
         <li><strong>Apple Intelligence / Foundation Models:</strong> For on-device task analysis (iOS 26+ on supported devices)</li>
+        <li><strong>App Groups:</strong> For securely transferring imported notes data between the Share Extension and the main app</li>
     </ul>
 
     <h2>Your Rights</h2>
     <p>You can:</p>
     <ul>
+        <li>Delete your account and all data from within the app (Profile &rarr; Delete Account)</li>
         <li>Delete all your data by uninstalling the app</li>
         <li>Revoke location permissions in iOS Settings</li>
         <li>Revoke Calendar and Reminders permissions in iOS Settings</li>
@@ -192,6 +199,7 @@
 
     <h2>Contact Us</h2>
     <p>If you have questions about this Privacy Policy, please contact us at:</p>
+    <p><strong>Email:</strong> <a href="mailto:bksourabh@gmail.com?subject=Smart%20Todo%20Privacy%20Inquiry">bksourabh@gmail.com</a></p>
     <p><strong>GitHub:</strong> <a href="https://github.com/bksourabh/ios-smart-todo/issues">Report an Issue</a></p>
 
     <div class="footer">

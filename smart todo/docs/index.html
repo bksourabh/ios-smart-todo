@@ -3,186 +3,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Todo - Intelligent Task Management</title>
+    <title>Smart Todo - AI-Powered Task Reminders</title>
     <style>
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .hero {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.7;
+            color: #1d1d1f;
+            background: #fff;
             text-align: center;
-            padding: 80px 20px;
-            color: white;
         }
-        .logo {
-            font-size: 80px;
-            margin-bottom: 20px;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+        .app-icon {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #007AFF, #5856D6);
+            border-radius: 27px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 40px auto 30px;
+            font-size: 60px;
+            box-shadow: 0 10px 30px rgba(0, 122, 255, 0.3);
         }
         h1 {
-            font-size: 48px;
-            margin-bottom: 15px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            color: #1d1d1f;
+            font-size: 3em;
+            font-weight: 700;
+            margin-bottom: 10px;
         }
         .tagline {
-            font-size: 22px;
-            opacity: 0.9;
-            margin-bottom: 20px;
-        }
-        .apple-intelligence-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255,255,255,0.2);
-            backdrop-filter: blur(10px);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
+            color: #86868b;
+            font-size: 1.4em;
             margin-bottom: 40px;
         }
-        .apple-intelligence-badge svg {
-            width: 20px;
-            height: 20px;
+        .description {
+            color: #424245;
+            font-size: 1.1em;
+            max-width: 600px;
+            margin: 0 auto 40px;
         }
         .features {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
-            max-width: 1100px;
-            margin: 0 auto 50px auto;
-            padding: 0 20px;
+            margin: 40px 0;
+            text-align: left;
         }
         .feature {
-            background: rgba(255,255,255,0.15);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
+            background: #f5f5f7;
             padding: 25px;
-            width: 260px;
-            text-align: center;
-        }
-        .feature.featured {
-            background: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.15) 100%);
-            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 16px;
         }
         .feature-icon {
-            font-size: 36px;
-            margin-bottom: 15px;
+            font-size: 2em;
+            margin-bottom: 10px;
         }
         .feature h3 {
-            font-size: 18px;
-            margin-bottom: 8px;
+            margin: 0 0 10px;
+            color: #1d1d1f;
         }
         .feature p {
-            font-size: 14px;
-            opacity: 0.85;
+            margin: 0;
+            color: #86868b;
+            font-size: 0.95em;
         }
-        .feature .new-badge {
+        .links {
+            margin-top: 50px;
+        }
+        .links a {
             display: inline-block;
-            background: #ff6b6b;
-            color: white;
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-left: 5px;
-            vertical-align: middle;
+            color: #007AFF;
+            text-decoration: none;
+            margin: 0 20px;
+            font-size: 1.1em;
+        }
+        .links a:hover {
+            text-decoration: underline;
         }
         .app-store-badge {
-            margin-top: 30px;
+            margin-top: 40px;
         }
         .app-store-badge img {
             height: 50px;
         }
-        .links {
-            margin-top: 60px;
-            padding: 30px;
-            background: rgba(0,0,0,0.2);
-        }
-        .links a {
-            color: white;
-            margin: 0 20px;
-            text-decoration: none;
-            opacity: 0.8;
-            transition: opacity 0.2s;
-        }
-        .links a:hover {
-            opacity: 1;
-        }
-        @media (max-width: 600px) {
-            h1 {
-                font-size: 32px;
-            }
-            .tagline {
-                font-size: 18px;
-            }
-            .feature {
-                width: 100%;
-            }
+        .footer {
+            margin-top: 80px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e5e5;
+            color: #86868b;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <div class="hero">
-        <div class="logo">✓</div>
-        <h1>Smart Todo</h1>
-        <p class="tagline">AI-Powered Task Reminders That Know Where You Need To Be</p>
+    <div class="app-icon">&#10003;</div>
+    <h1>Smart Todo</h1>
+    <p class="tagline">AI-Powered Task Reminders</p>
 
-        <div class="apple-intelligence-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            Powered by Apple Intelligence
+    <p class="description">
+        The intelligent task manager that automatically knows where you need to be.
+        Import from Apple Notes, break tasks into subtasks, and get reminded at the right
+        time and place &mdash; powered by Apple Intelligence.
+    </p>
+
+    <div class="features">
+        <div class="feature">
+            <div class="feature-icon">&#128221;</div>
+            <h3>Notes Integration</h3>
+            <p>Share text from Apple Notes via the Share Extension. AI groups items by location and creates tasks with subtasks &mdash; secured with Face ID.</p>
         </div>
-
-        <div class="features">
-            <div class="feature featured">
-                <div class="feature-icon">🤖</div>
-                <h3>Apple Intelligence <span class="new-badge">NEW</span></h3>
-                <p>On-device AI understands your tasks naturally. "Pick up mom's heart pills" automatically maps to pharmacies.</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">✨</div>
-                <h3>Smart Auto-Location</h3>
-                <p>Add "Buy medicines" and get notified at ALL your saved pharmacies automatically</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">🧠</div>
-                <h3>AI Category Detection</h3>
-                <p>Understands your tasks and matches them to relevant locations</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">📍</div>
-                <h3>Location Reminders</h3>
-                <p>Get notified when you're near pharmacies, fuel stations, supermarkets & more</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">🔒</div>
-                <h3>Privacy First</h3>
-                <p>All data and AI processing stays on your device - nothing is sent to servers</p>
-            </div>
+        <div class="feature">
+            <div class="feature-icon">&#9745;</div>
+            <h3>Subtasks</h3>
+            <p>Break tasks into smaller steps with individual checkboxes. When all subtasks are done, the parent task completes automatically.</p>
         </div>
-
-        <div class="app-store-badge">
-            <p style="opacity: 0.7; margin-bottom: 15px;">Coming Soon to the App Store</p>
-            <!-- Replace with actual App Store link once approved -->
-            <!-- <a href="https://apps.apple.com/app/idXXXXXXXXX">
-                <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store">
-            </a> -->
+        <div class="feature">
+            <div class="feature-icon">&#129302;</div>
+            <h3>Apple Intelligence</h3>
+            <p>On-device AI understands your tasks and automatically categorizes them by location.</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">&#128205;</div>
+            <h3>Smart Location</h3>
+            <p>Get notified at the right place &mdash; near pharmacies, stores, or fuel stations.</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">&#128197;</div>
+            <h3>Calendar Import</h3>
+            <p>Import and analyze your existing calendar events and reminders.</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">&#128274;</div>
+            <h3>Privacy First</h3>
+            <p>All data stays on your device. Nothing is ever sent to external servers.</p>
         </div>
     </div>
 
     <div class="links">
-        <a href="privacy.html">Privacy Policy</a>
         <a href="support.html">Support</a>
+        <a href="privacy.html">Privacy Policy</a>
         <a href="https://github.com/bksourabh/ios-smart-todo">GitHub</a>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2026 Sourabh Mazumder. All rights reserved.</p>
     </div>
 </body>
 </html>

@@ -126,6 +126,7 @@ class ShareViewController: UIViewController {
             return
         }
 
+        let queue = DispatchQueue(label: "com.smarttodo.share.textcollection")
         var collectedTexts: [String] = []
         let group = DispatchGroup()
 
@@ -143,7 +144,7 @@ class ShareViewController: UIViewController {
                     group.enter()
                     provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { data, _ in
                         if let text = data as? String, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            collectedTexts.append(text)
+                            queue.sync { collectedTexts.append(text) }
                         }
                         group.leave()
                     }
@@ -151,9 +152,9 @@ class ShareViewController: UIViewController {
                     group.enter()
                     provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { data, _ in
                         if let url = data as? URL {
-                            collectedTexts.append(url.absoluteString)
+                            queue.sync { collectedTexts.append(url.absoluteString) }
                         } else if let text = data as? String {
-                            collectedTexts.append(text)
+                            queue.sync { collectedTexts.append(text) }
                         }
                         group.leave()
                     }
@@ -162,7 +163,8 @@ class ShareViewController: UIViewController {
         }
 
         group.notify(queue: .main) { [weak self] in
-            let unique = self?.deduplicateTexts(collectedTexts) ?? []
+            let snapshot = queue.sync { collectedTexts }
+            let unique = self?.deduplicateTexts(snapshot) ?? []
             let fullText = unique.joined(separator: "\n")
             self?.showAnalyzer(with: fullText)
         }
