@@ -24,6 +24,15 @@ struct TaskCategoryResponse {
     var confidence: Double
 }
 
+/// Response schema for grouping notes items by location
+@available(iOS 26.0, macOS 26.0, *)
+@Generable
+struct NotesGroupingResponse {
+    /// JSON array of task groups. Each group has: "groupTitle" (string, a short name describing where these tasks are done, e.g. "Supermarket Run", "Pharmacy Visit"), "locationCategory" (string, one of: pharmacy, fuel_station, supermarket, grocery, restaurant, bank, post_office, hardware, electronics, clothing, or none), and "items" (array of strings, the individual task items in this group).
+    @Guide(description: "A JSON array of task groups. Each element is a JSON object with keys: groupTitle (string), locationCategory (string from the allowed categories or none), items (array of strings). Group related items by where they can be completed. Example: [{\"groupTitle\":\"Grocery Shopping\",\"locationCategory\":\"supermarket\",\"items\":[\"milk\",\"tomatoes\"]},{\"groupTitle\":\"Pharmacy Visit\",\"locationCategory\":\"pharmacy\",\"items\":[\"medicines\"]}]")
+    var groupsJSON: String
+}
+
 /// Response schema for actionable task detection
 @available(iOS 26.0, macOS 26.0, *)
 @Generable
@@ -272,6 +281,67 @@ class AppleIntelligenceAnalyzer {
         }
     }
 
+    /// Group notes items by location category using Apple Intelligence
+    /// - Parameter items: Array of individual task/item strings parsed from notes
+    /// - Returns: Array of grouped tasks with location categories
+    func groupNotesItems(_ items: [String]) async -> [NotesTaskGroup] {
+        guard !items.isEmpty else { return [] }
+
+        guard let session = session else {
+            return NotesTaskGroup.groupByKeywords(items)
+        }
+
+        let itemsList = items.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
+
+        let prompt = """
+        You have a list of items from a user's notes. Group these items by the location where they can be completed or purchased.
+
+        Items:
+        \(itemsList)
+
+        Rules:
+        - Group items that can be bought/done at the same type of location together
+        - Each group needs a short, friendly title (e.g. "Grocery Shopping", "Pharmacy Visit")
+        - Assign a locationCategory to each group: pharmacy, fuel_station, supermarket, grocery, restaurant, bank, post_office, hardware, electronics, clothing, or none
+        - Items like milk, tomatoes, bread, eggs go to supermarket or grocery
+        - Items like medicines, prescriptions go to pharmacy
+        - If an item doesn't fit any category, put it in a group with locationCategory "none"
+        - Keep the original item text as-is
+
+        Return the grouping as a JSON array.
+        """
+
+        do {
+            try Task.checkCancellation()
+
+            let response = try await session.respond(
+                to: prompt,
+                generating: NotesGroupingResponse.self
+            )
+
+            try Task.checkCancellation()
+
+            let jsonString = response.content.groupsJSON
+            if let data = jsonString.data(using: .utf8),
+               let groups = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                return groups.compactMap { dict -> NotesTaskGroup? in
+                    guard let title = dict["groupTitle"] as? String,
+                          let categoryStr = dict["locationCategory"] as? String,
+                          let items = dict["items"] as? [String] else { return nil }
+                    let category = LocationCategory(rawValue: categoryStr)
+                    return NotesTaskGroup(groupTitle: title, locationCategory: category, items: items)
+                }
+            }
+
+            return NotesTaskGroup.groupByKeywords(items)
+        } catch is CancellationError {
+            return []
+        } catch {
+            print("Apple Intelligence notes grouping failed: \(error)")
+            return NotesTaskGroup.groupByKeywords(items)
+        }
+    }
+
     /// Keyword-based fallback for actionable task detection
     private static func isActionableTaskKeywordBased(text: String) -> Bool {
         let lowercasedText = text.lowercased()
@@ -314,6 +384,62 @@ class AppleIntelligenceAnalyzer {
 }
 
 #endif
+
+// MARK: - Notes Task Group Model
+
+/// Represents a group of tasks that can be completed at the same type of location
+struct NotesTaskGroup: Identifiable {
+    let id = UUID()
+    var groupTitle: String
+    var locationCategory: LocationCategory?
+    var items: [String]
+
+    /// Keyword-based fallback for grouping items by location
+    static func groupByKeywords(_ items: [String]) -> [NotesTaskGroup] {
+        var categoryItems: [LocationCategory: [String]] = [:]
+        var uncategorized: [String] = []
+
+        for item in items {
+            if let category = TaskCategoryAnalyzer.primaryCategory(for: item) {
+                categoryItems[category, default: []].append(item)
+            } else {
+                uncategorized.append(item)
+            }
+        }
+
+        var groups: [NotesTaskGroup] = []
+
+        // Merge grocery and supermarket into one group
+        let groceryItems = (categoryItems[.grocery] ?? []) + (categoryItems[.supermarket] ?? [])
+        if !groceryItems.isEmpty {
+            groups.append(NotesTaskGroup(
+                groupTitle: "Grocery Shopping",
+                locationCategory: .supermarket,
+                items: groceryItems
+            ))
+            categoryItems.removeValue(forKey: .grocery)
+            categoryItems.removeValue(forKey: .supermarket)
+        }
+
+        for (category, items) in categoryItems {
+            groups.append(NotesTaskGroup(
+                groupTitle: "\(category.singularDisplayName) Visit",
+                locationCategory: category,
+                items: items
+            ))
+        }
+
+        if !uncategorized.isEmpty {
+            groups.append(NotesTaskGroup(
+                groupTitle: "Other Tasks",
+                locationCategory: nil,
+                items: uncategorized
+            ))
+        }
+
+        return groups
+    }
+}
 
 // MARK: - Unified Smart Task Analyzer
 
@@ -476,6 +602,31 @@ class SmartTaskAnalyzer {
     /// - Returns: Array of matching PointOfInterest objects
     func findMatchingPOIs(for categories: [LocationCategory], in context: NSManagedObjectContext) -> [PointOfInterest] {
         return TaskCategoryAnalyzer.findMatchingPOIs(for: categories, in: context)
+    }
+
+    // MARK: - Notes Grouping
+
+    /// Group notes items by location using Apple Intelligence or keyword fallback
+    /// - Parameter items: Array of individual task/item strings from notes
+    /// - Returns: Array of NotesTaskGroup with items grouped by location
+    @MainActor
+    func groupNotesItems(_ items: [String]) async -> [NotesTaskGroup] {
+        guard !items.isEmpty else { return [] }
+
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *), AppleIntelligenceAnalyzer.isAvailable {
+            do {
+                try Task.checkCancellation()
+                return await AppleIntelligenceAnalyzer.shared.groupNotesItems(items)
+            } catch is CancellationError {
+                return []
+            } catch {
+                print("SmartTaskAnalyzer groupNotesItems error: \(error)")
+            }
+        }
+        #endif
+
+        return NotesTaskGroup.groupByKeywords(items)
     }
 
     // MARK: - Batch Analysis for Import

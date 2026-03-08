@@ -89,7 +89,7 @@ final class AuthenticationManager: NSObject, ObservableObject {
         let context = PersistenceController.shared.container.viewContext
 
         // Delete all Core Data entities
-        let entityNames = ["TodoTask", "Group", "PointOfInterest"]
+        let entityNames = ["SubTask", "TodoTask", "Group", "PointOfInterest"]
         for entityName in entityNames {
             let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
             let batchDelete = NSBatchDeleteRequest(fetchRequest: fetchRequest)

@@ -42,6 +42,10 @@ struct AddEditTaskView: View {
     @State private var analysisTask: Task<Void, Never>?
     @State private var lastAnalyzedTitle: String = ""
 
+    // Subtask state
+    @State private var subTaskTitles: [String] = []
+    @State private var newSubTaskTitle: String = ""
+
     private var isLocationNotificationsEnabled: Bool {
         return locationManager.isLocationBasedNotificationsAvailable
     }
@@ -124,6 +128,9 @@ struct AddEditTaskView: View {
                         Text("Enter a descriptive title for your task")
                     }
                 }
+
+                // Subtasks Section
+                subTasksSection
 
                 // Only show Due Date section for time-based notifications
                 if notificationType == "time" {
@@ -326,6 +333,12 @@ struct AddEditTaskView: View {
                     showingPastDateError = false
                     showingDateTooSoonError = false
                     showingNotificationPastError = false
+                    // Load existing subtasks
+                    if let existingSubTasks = task.subTasks as? Set<SubTask> {
+                        subTaskTitles = existingSubTasks
+                            .sorted { $0.sortOrder < $1.sortOrder }
+                            .compactMap { $0.title }
+                    }
                     // Analyze for smart notification if applicable
                     if savedNotificationType == "smart" {
                         analyzeTaskForSmartNotification()
@@ -454,6 +467,25 @@ struct AddEditTaskView: View {
                 break
             }
 
+            // Save subtasks
+            // Remove existing subtasks first (for edit case)
+            if let existingSubTasks = taskToSave.subTasks as? Set<SubTask> {
+                for st in existingSubTasks {
+                    viewContext.delete(st)
+                }
+            }
+            // Create new subtasks
+            let filteredSubTasks = subTaskTitles.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            for (index, subTitle) in filteredSubTasks.enumerated() {
+                let subTask = SubTask(context: viewContext)
+                subTask.id = UUID()
+                subTask.title = subTitle
+                subTask.isCompleted = false
+                subTask.createdAt = Date()
+                subTask.sortOrder = Int16(index)
+                subTask.parentTask = taskToSave
+            }
+
             do {
                 try viewContext.save()
 
@@ -473,6 +505,68 @@ struct AddEditTaskView: View {
                 let nsError = error as NSError
                 print("Error saving task: \(nsError), \(nsError.userInfo)")
             }
+        }
+    }
+
+    // MARK: - Subtasks Section
+
+    private var subTasksSection: some View {
+        Section(header: Text("Subtasks")) {
+            ForEach(subTaskTitles.indices, id: \.self) { index in
+                HStack(spacing: 10) {
+                    Circle()
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 1.5)
+                        .frame(width: 20, height: 20)
+
+                    TextField("Subtask", text: $subTaskTitles[index])
+                        .font(.system(size: 15))
+
+                    Button(action: {
+                        let i = index
+                        withAnimation {
+                            subTaskTitles.remove(at: i)
+                        }
+                    }) {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundColor(.red)
+                            .font(.system(size: 18))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.vertical, 2)
+            }
+
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(.blue)
+                    .font(.system(size: 20))
+                    .frame(width: 20)
+
+                TextField("Add subtask", text: $newSubTaskTitle)
+                    .font(.system(size: 15))
+                    .onSubmit {
+                        addNewSubTask()
+                    }
+
+                if !newSubTaskTitle.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Button("Add") {
+                        addNewSubTask()
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    // MARK: - Subtask Helpers
+
+    private func addNewSubTask() {
+        let trimmed = newSubTaskTitle.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        withAnimation {
+            subTaskTitles.append(trimmed)
+            newSubTaskTitle = ""
         }
     }
 

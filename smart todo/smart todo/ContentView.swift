@@ -13,7 +13,6 @@ struct ContentView: View {
     @EnvironmentObject var notificationManager: NotificationManager
     @EnvironmentObject var authManager: AuthenticationManager
     @EnvironmentObject var tourManager: GuidedTourManager
-
     @FetchRequest(
         sortDescriptors: [
             NSSortDescriptor(keyPath: \TodoTask.isCompleted, ascending: true),
@@ -29,6 +28,7 @@ struct ContentView: View {
     @State private var highlightFrames: [TourStep: CGRect] = [:]
     @State private var showingDeleteAlert = false
     @State private var taskToDelete: TodoTask?
+    @State private var showingNotesImport = false
 
     private var hasCompletedTasks: Bool {
         tasks.contains { $0.isCompleted }
@@ -98,6 +98,9 @@ struct ContentView: View {
                 }
                 .sheet(isPresented: $showingUserProfile) {
                     UserProfileView(authManager: authManager)
+                }
+                .sheet(isPresented: $showingNotesImport) {
+                    NotesImportView()
                 }
                 .alert("Clear Completed Tasks?", isPresented: $showingDeleteAlert) {
                     Button("Cancel", role: .cancel) { }
@@ -225,18 +228,16 @@ struct ContentView: View {
 
             Section {
                 ForEach(tasks) { task in
-                    TaskRow(task: task) {
+                    TaskRow(task: task, onToggleComplete: {
                         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
                         impactFeedback.impactOccurred()
                         toggleTaskCompletion(task)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
+                    }, onTapTask: {
                         let selectionFeedback = UISelectionFeedbackGenerator()
                         selectionFeedback.selectionChanged()
                         selectedTask = task
                         showingAddTask = true
-                    }
+                    })
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
                 }
@@ -293,6 +294,18 @@ struct ContentView: View {
             .tourHighlight(for: .locationButton)
             .accessibilityLabel("Manage locations")
             .accessibilityHint("Opens points of interest manager")
+
+            Button(action: {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                impactFeedback.impactOccurred()
+                showingNotesImport = true
+            }) {
+                Image(systemName: "note.text")
+                    .font(.system(size: 18))
+                    .foregroundColor(.orange)
+            }
+            .accessibilityLabel("Import from notes")
+            .accessibilityHint("Import tasks from notes with smart grouping")
 
             Button(action: {
                 let impactFeedback = UIImpactFeedbackGenerator(style: .medium)

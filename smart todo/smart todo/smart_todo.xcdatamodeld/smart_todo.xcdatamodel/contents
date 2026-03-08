@@ -6,6 +6,14 @@
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="tasks" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="TodoTask" inverseName="group" inverseEntity="TodoTask"/>
     </entity>
+    <entity name="SubTask" representedClassName="SubTask" syncable="YES" codeGenerationType="class">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="title" attributeType="String"/>
+        <attribute name="isCompleted" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="sortOrder" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="parentTask" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="TodoTask" inverseName="subTasks" inverseEntity="TodoTask"/>
+    </entity>
     <entity name="TodoTask" representedClassName="TodoTask" syncable="YES" codeGenerationType="class">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="title" attributeType="String"/>
@@ -21,6 +29,7 @@
         <attribute name="smartLocationCategory" optional="YES" attributeType="String"/>
         <relationship name="group" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Group" inverseName="tasks" inverseEntity="Group"/>
         <relationship name="notificationLocation" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PointOfInterest" inverseName="tasks" inverseEntity="PointOfInterest"/>
+        <relationship name="subTasks" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="SubTask" inverseName="parentTask" inverseEntity="SubTask"/>
     </entity>
     <entity name="PointOfInterest" representedClassName="PointOfInterest" syncable="YES" codeGenerationType="class">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
@@ -32,7 +41,8 @@
         <relationship name="tasks" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="TodoTask" inverseName="notificationLocation" inverseEntity="TodoTask"/>
     </entity>
     <elements>
-        <element name="TodoTask" positionX="-63" positionY="-18" width="128" height="179"/>
+        <element name="SubTask" positionX="-54" positionY="200" width="128" height="119"/>
+        <element name="TodoTask" positionX="-63" positionY="-18" width="128" height="194"/>
         <element name="Group" positionX="-54" positionY="9" width="128" height="88"/>
         <element name="PointOfInterest" positionX="-54" positionY="117" width="128" height="103"/>
     </elements>
