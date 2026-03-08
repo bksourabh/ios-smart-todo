@@ -508,6 +508,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Smart Todo needs access to your calendars to import events as tasks with smart notifications.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Smart Todo needs access to your calendars to import events as tasks with smart notifications.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Smart Todo uses Face ID to verify your identity before importing notes.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Smart Todo needs your location to notify you when you're near a saved place. Choose 'Always' to receive location-based reminders even when the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Smart Todo needs your location to notify you when you're near a saved place for location-based task reminders.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Smart Todo needs access to your reminders to import them as tasks with smart notifications.";
@@ -551,6 +552,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Smart Todo needs access to your calendars to import events as tasks with smart notifications.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Smart Todo needs access to your calendars to import events as tasks with smart notifications.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Smart Todo uses Face ID to verify your identity before importing notes.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Smart Todo needs your location to notify you when you're near a saved place. Choose 'Always' to receive location-based reminders even when the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Smart Todo needs your location to notify you when you're near a saved place for location-based task reminders.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Smart Todo needs access to your reminders to import them as tasks with smart notifications.";
