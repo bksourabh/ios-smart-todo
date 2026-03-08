@@ -10,6 +10,8 @@ import CoreData
 
 /// Multi-step import flow for importing tasks from Notes
 struct NotesImportView: View {
+    var initialText: String?
+
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var notificationManager: NotificationManager
@@ -79,6 +81,12 @@ struct NotesImportView: View {
         }
         .navigationViewStyle(.stack)
         .interactiveDismissDisabled(isImporting)
+        .onAppear {
+            if let text = initialText, !text.isEmpty {
+                notesText = text
+                analyzeNotes()
+            }
+        }
     }
 
     // MARK: - Progress Indicator

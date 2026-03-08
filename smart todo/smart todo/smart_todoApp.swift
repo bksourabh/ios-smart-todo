@@ -19,6 +19,10 @@ struct smart_todoApp: App {
     @StateObject private var authManager = AuthenticationManager.shared
     @StateObject private var tourManager = GuidedTourManager.shared
     @ObservedObject private var locationManager = LocationManager.shared
+    @State private var pendingSharedText: String?
+
+    private let appGroupID = "group.com.helpingthoughtgames.smart-todo"
+    private let sharedKey = "SharedNotesText"
 
     var body: some Scene {
         WindowGroup {
@@ -27,6 +31,26 @@ struct smart_todoApp: App {
                 .animation(.easeInOut, value: tourManager.isOnboardingComplete)
                 .animation(.easeInOut, value: tourManager.isPOISetupComplete)
                 .animation(.easeInOut, value: tourManager.isCalendarImportComplete)
+                .onOpenURL { url in
+                    handleIncomingURL(url)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    checkForSharedText()
+                }
+        }
+    }
+
+    private func handleIncomingURL(_ url: URL) {
+        guard url.scheme == "smarttodo", url.host == "import-notes" else { return }
+        checkForSharedText()
+    }
+
+    private func checkForSharedText() {
+        guard let sharedDefaults = UserDefaults(suiteName: appGroupID) else { return }
+        if let text = sharedDefaults.string(forKey: sharedKey), !text.isEmpty {
+            pendingSharedText = text
+            sharedDefaults.removeObject(forKey: sharedKey)
+            sharedDefaults.synchronize()
         }
     }
 
@@ -55,7 +79,7 @@ struct smart_todoApp: App {
                     .preferredColorScheme(themeManager.colorScheme)
             } else {
                 // Show main content with guided tour
-                ContentView()
+                ContentView(pendingSharedText: $pendingSharedText)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
                     .environmentObject(themeManager)
                     .environmentObject(notificationManager)

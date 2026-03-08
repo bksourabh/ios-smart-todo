@@ -9,6 +9,7 @@ import SwiftUI
 import CoreData
 
 struct ContentView: View {
+    @Binding var pendingSharedText: String?
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var notificationManager: NotificationManager
     @EnvironmentObject var authManager: AuthenticationManager
@@ -100,7 +101,15 @@ struct ContentView: View {
                     UserProfileView(authManager: authManager)
                 }
                 .sheet(isPresented: $showingNotesImport) {
-                    NotesImportView()
+                    NotesImportView(initialText: pendingSharedText)
+                        .onDisappear {
+                            pendingSharedText = nil
+                        }
+                }
+                .onChange(of: pendingSharedText) { newValue in
+                    if newValue != nil {
+                        showingNotesImport = true
+                    }
                 }
                 .alert("Clear Completed Tasks?", isPresented: $showingDeleteAlert) {
                     Button("Cancel", role: .cancel) { }
@@ -376,7 +385,7 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(pendingSharedText: .constant(nil))
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
         .environmentObject(NotificationManager.shared)
         .environmentObject(AuthenticationManager.shared)
