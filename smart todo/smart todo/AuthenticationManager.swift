@@ -25,6 +25,9 @@ final class AuthenticationManager: NSObject, ObservableObject {
     private let userIdKey = "appleUserId"
     private let userNameKey = "appleUserName"
     private let userEmailKey = "appleUserEmail"
+    private let appGroupID = "group.com.helpingthoughtgames.smart-todo"
+    private let sharedAuthKey = "sharedAppleUserId"
+    private let sharedUserNameKey = "sharedAppleUserName"
 
     override init() {
         super.init()
@@ -47,6 +50,11 @@ final class AuthenticationManager: NSObject, ObservableObject {
                         self.userId = userId
                         self.userName = UserDefaults.standard.string(forKey: userNameKeyLocal) ?? ""
                         self.userEmail = UserDefaults.standard.string(forKey: userEmailKeyLocal) ?? ""
+                        // Ensure App Group is in sync for Share Extension
+                        if let sharedDefaults = UserDefaults(suiteName: self.appGroupID) {
+                            sharedDefaults.set(userId, forKey: self.sharedAuthKey)
+                            sharedDefaults.set(self.userName, forKey: self.sharedUserNameKey)
+                        }
                     case .revoked, .notFound:
                         self.signOut()
                     case .transferred:
@@ -82,6 +90,12 @@ final class AuthenticationManager: NSObject, ObservableObject {
         UserDefaults.standard.removeObject(forKey: userIdKey)
         UserDefaults.standard.removeObject(forKey: userNameKey)
         UserDefaults.standard.removeObject(forKey: userEmailKey)
+
+        // Clear App Group auth
+        if let sharedDefaults = UserDefaults(suiteName: appGroupID) {
+            sharedDefaults.removeObject(forKey: sharedAuthKey)
+            sharedDefaults.removeObject(forKey: sharedUserNameKey)
+        }
     }
 
     // Delete account — clears all local data and signs out
@@ -110,6 +124,12 @@ final class AuthenticationManager: NSObject, ObservableObject {
         UserDefaults.standard.set(userId, forKey: userIdKey)
         UserDefaults.standard.set(name, forKey: userNameKey)
         UserDefaults.standard.set(email, forKey: userEmailKey)
+
+        // Sync to App Group so Share Extension can verify auth
+        if let sharedDefaults = UserDefaults(suiteName: appGroupID) {
+            sharedDefaults.set(userId, forKey: sharedAuthKey)
+            sharedDefaults.set(name, forKey: sharedUserNameKey)
+        }
 
         self.userId = userId
         self.userName = name
