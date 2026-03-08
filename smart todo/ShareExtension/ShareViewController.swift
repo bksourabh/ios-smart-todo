@@ -6,85 +6,105 @@
 //
 
 import UIKit
-import Social
+import SwiftUI
 import UniformTypeIdentifiers
 
-class ShareViewController: SLComposeServiceViewController {
+class ShareViewController: UIViewController {
 
-    private let appGroupID = "group.com.helpingthoughtgames.smart-todo"
-    private let sharedKey = "SharedNotesText"
+    private var hasProcessed = false
 
-    override func isContentValid() -> Bool {
-        // Valid as long as there's some text
-        let text = contentText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return !text.isEmpty
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
     }
 
-    override func didSelectPost() {
-        guard let text = contentText, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            self.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !hasProcessed else { return }
+        hasProcessed = true
+        extractText()
+    }
+
+    private func extractText() {
+        guard let extensionItems = extensionContext?.inputItems as? [NSExtensionItem] else {
+            showAnalyzer(with: "")
             return
         }
 
-        // Also check for any text attachments from the share sheet
-        var fullText = text
+        var collectedTexts: [String] = []
+        let group = DispatchGroup()
 
-        if let extensionItems = extensionContext?.inputItems as? [NSExtensionItem] {
-            let group = DispatchGroup()
-
-            for item in extensionItems {
-                guard let attachments = item.attachments else { continue }
-                for provider in attachments {
-                    if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                        group.enter()
-                        provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { (data, _) in
-                            if let sharedText = data as? String, sharedText != text {
-                                fullText = fullText + "\n" + sharedText
-                            }
-                            group.leave()
-                        }
-                    }
+        for item in extensionItems {
+            // Notes shares via attributedContentText
+            if let attributedText = item.attributedContentText {
+                let text = attributedText.string.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !text.isEmpty {
+                    collectedTexts.append(text)
                 }
             }
 
-            group.notify(queue: .main) { [weak self] in
-                self?.saveAndOpen(fullText)
+            guard let attachments = item.attachments else { continue }
+            for provider in attachments {
+                if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                    group.enter()
+                    provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { data, _ in
+                        if let text = data as? String, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            collectedTexts.append(text)
+                        }
+                        group.leave()
+                    }
+                } else if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+                    group.enter()
+                    provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { data, _ in
+                        if let url = data as? URL {
+                            collectedTexts.append(url.absoluteString)
+                        } else if let text = data as? String {
+                            collectedTexts.append(text)
+                        }
+                        group.leave()
+                    }
+                }
             }
-        } else {
-            saveAndOpen(fullText)
+        }
+
+        group.notify(queue: .main) { [weak self] in
+            let unique = self?.deduplicateTexts(collectedTexts) ?? []
+            let fullText = unique.joined(separator: "\n")
+            self?.showAnalyzer(with: fullText)
         }
     }
 
-    private func saveAndOpen(_ text: String) {
-        // Save to shared UserDefaults
-        if let sharedDefaults = UserDefaults(suiteName: appGroupID) {
-            sharedDefaults.set(text, forKey: sharedKey)
-            sharedDefaults.synchronize()
-        }
-
-        // Open main app via URL scheme
-        if let url = URL(string: "smarttodo://import-notes") {
-            openURL(url)
-        }
-
-        self.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
-    }
-
-    // Extension-safe way to open a URL
-    @objc private func openURL(_ url: URL) {
-        var responder: UIResponder? = self
-        while let r = responder {
-            if let application = r as? UIApplication {
-                application.open(url, options: [:], completionHandler: nil)
-                return
+    private func deduplicateTexts(_ texts: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for text in texts {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty && !seen.contains(trimmed) {
+                seen.insert(trimmed)
+                result.append(trimmed)
             }
-            responder = r.next
         }
-        // Fallback: use the extensionContext to open the URL
-        extensionContext?.open(url, completionHandler: nil)
+        return result
     }
 
-    override func configurationItems() -> [Any]! {
-        return []
+    private func showAnalyzer(with text: String) {
+        let analyzerView = ShareNotesAnalyzerView(sharedText: text) { [weak self] in
+            self?.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+        }
+
+        let hostingController = UIHostingController(rootView: analyzerView)
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+
+        addChild(hostingController)
+        view.addSubview(hostingController.view)
+
+        NSLayoutConstraint.activate([
+            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
+
+        hostingController.didMove(toParent: self)
     }
 }

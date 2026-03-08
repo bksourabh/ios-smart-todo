@@ -20,9 +20,11 @@ struct smart_todoApp: App {
     @StateObject private var tourManager = GuidedTourManager.shared
     @ObservedObject private var locationManager = LocationManager.shared
     @State private var pendingSharedText: String?
+    @State private var showingImportBanner = false
+    @State private var importedTaskCount = 0
 
     private let appGroupID = "group.com.helpingthoughtgames.smart-todo"
-    private let sharedKey = "SharedNotesText"
+    private let importFileName = "PendingImport.json"
 
     var body: some Scene {
         WindowGroup {
@@ -34,23 +36,91 @@ struct smart_todoApp: App {
                 .onOpenURL { url in
                     handleIncomingURL(url)
                 }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                    checkForSharedImport()
+                }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                    checkForSharedText()
+                    checkForSharedImport()
                 }
         }
     }
 
     private func handleIncomingURL(_ url: URL) {
         guard url.scheme == "smarttodo", url.host == "import-notes" else { return }
-        checkForSharedText()
+        checkForSharedImport()
     }
 
-    private func checkForSharedText() {
-        guard let sharedDefaults = UserDefaults(suiteName: appGroupID) else { return }
-        if let text = sharedDefaults.string(forKey: sharedKey), !text.isEmpty {
-            pendingSharedText = text
-            sharedDefaults.removeObject(forKey: sharedKey)
-            sharedDefaults.synchronize()
+    private func checkForSharedImport() {
+        guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else { return }
+        let fileURL = containerURL.appendingPathComponent(importFileName)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let importData = try JSONDecoder().decode(SharedImportPayload.self, from: data)
+            try FileManager.default.removeItem(at: fileURL)
+            importTasksFromShareExtension(importData)
+        } catch {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+    }
+
+    private func importTasksFromShareExtension(_ payload: SharedImportPayload) {
+        let context = persistenceController.container.viewContext
+        var count = 0
+
+        for group in payload.groups {
+            let todoTask = TodoTask(context: context)
+            todoTask.id = UUID()
+            todoTask.title = group.groupTitle
+            todoTask.isCompleted = false
+            todoTask.createdAt = Date()
+            todoTask.dateType = "smart"
+            todoTask.notificationType = "smart"
+            todoTask.locationNotificationDistance = 15
+
+            if let category = group.locationCategory {
+                // Map share extension category to main app category
+                todoTask.smartLocationCategory = category.rawValue
+            }
+
+            for (subIndex, itemTitle) in group.items.enumerated() {
+                let subTask = SubTask(context: context)
+                subTask.id = UUID()
+                subTask.title = itemTitle
+                subTask.isCompleted = false
+                subTask.createdAt = Date()
+                subTask.sortOrder = Int16(subIndex)
+                subTask.parentTask = todoTask
+            }
+
+            count += 1
+        }
+
+        do {
+            try context.save()
+            importedTaskCount = count
+            showingImportBanner = true
+
+            // Schedule smart notifications for imported tasks
+            for group in payload.groups {
+                if let categoryStr = group.locationCategory?.rawValue,
+                   let category = LocationCategory(rawValue: categoryStr) {
+                    let matchingPOIs = TaskCategoryAnalyzer.findMatchingPOIs(for: [category], in: context)
+                    if !matchingPOIs.isEmpty {
+                        // Find the most recently created task with this category
+                        let fetchRequest: NSFetchRequest<TodoTask> = TodoTask.fetchRequest()
+                        fetchRequest.predicate = NSPredicate(format: "smartLocationCategory == %@", categoryStr)
+                        fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \TodoTask.createdAt, ascending: false)]
+                        fetchRequest.fetchLimit = 1
+                        if let task = try? context.fetch(fetchRequest).first {
+                            notificationManager.scheduleSmartNotifications(for: task, matchingPOIs: matchingPOIs)
+                        }
+                    }
+                }
+            }
+        } catch {
+            print("Error importing shared tasks: \(error)")
         }
     }
 
@@ -133,4 +203,31 @@ struct smart_todoApp: App {
                 .preferredColorScheme(themeManager.colorScheme)
         }
     }
+}
+
+// MARK: - Shared Import Payload (mirrors ShareExtension's SharedImportData)
+
+private struct SharedImportPayload: Codable {
+    let groups: [SharedImportGroup]
+    let timestamp: Date
+}
+
+private struct SharedImportGroup: Codable {
+    let id: UUID
+    var groupTitle: String
+    var locationCategory: SharedImportCategory?
+    var items: [String]
+}
+
+private enum SharedImportCategory: String, Codable {
+    case pharmacy
+    case fuelStation = "fuel_station"
+    case supermarket
+    case grocery
+    case restaurant
+    case bank
+    case postOffice = "post_office"
+    case hardware
+    case electronics
+    case clothing
 }

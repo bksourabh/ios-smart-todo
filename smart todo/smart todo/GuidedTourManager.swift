@@ -14,6 +14,7 @@ import UIKit
 enum TourStep: Int, CaseIterable {
     case welcome
     case addTaskButton
+    case notesImportButton
     case taskList
     case locationButton
     case profileButton
@@ -25,6 +26,8 @@ enum TourStep: Int, CaseIterable {
             return "Welcome!"
         case .addTaskButton:
             return "Add Your First Task"
+        case .notesImportButton:
+            return "Import from Notes"
         case .taskList:
             return "Your Tasks"
         case .locationButton:
@@ -42,14 +45,16 @@ enum TourStep: Int, CaseIterable {
             return "Let's take a quick tour of Smart Todo. This will only take a moment!"
         case .addTaskButton:
             return "Tap the + button to create a new task. You can add details like due dates and notification preferences."
+        case .notesImportButton:
+            return "Paste or share text from Apple Notes. Apple Intelligence groups items by location — like groceries to the supermarket, medicines to the pharmacy — and creates tasks with subtasks."
         case .taskList:
-            return "Your tasks will appear here. Tap the circle to mark them complete, or tap the task to edit it."
+            return "Your tasks will appear here. Tap the circle to mark them complete, or tap the task to edit it. Tasks with subtasks show checkboxes for each item."
         case .locationButton:
             return "Manage your saved locations here. Add places like home, work, or stores for location-based reminders."
         case .profileButton:
             return "Access your account settings and sign out from here."
         case .complete:
-            return "You're ready to start using Smart Todo! Add your first task to get started."
+            return "You're ready to start using Smart Todo! Add your first task to get started. You can also share text directly from Notes using the share menu."
         }
     }
 
@@ -59,6 +64,8 @@ enum TourStep: Int, CaseIterable {
             return "hand.wave.fill"
         case .addTaskButton:
             return "plus.circle.fill"
+        case .notesImportButton:
+            return "note.text"
         case .taskList:
             return "list.bullet"
         case .locationButton:
@@ -76,6 +83,8 @@ enum TourStep: Int, CaseIterable {
             return .blue
         case .addTaskButton:
             return .green
+        case .notesImportButton:
+            return .orange
         case .taskList:
             return .orange
         case .locationButton:
@@ -92,6 +101,8 @@ enum TourStep: Int, CaseIterable {
         case .welcome:
             return .center
         case .addTaskButton:
+            return .topRight
+        case .notesImportButton:
             return .topRight
         case .taskList:
             return .center
@@ -319,7 +330,7 @@ struct TourTooltipCard: View {
         case .welcome, .complete:
             // Center-focused steps: show tooltip in center
             return .center
-        case .addTaskButton, .locationButton, .profileButton:
+        case .addTaskButton, .notesImportButton, .locationButton, .profileButton:
             // Toolbar buttons at top: ALWAYS show tooltip below (in upper-middle area)
             return .belowHighlight
         case .taskList:

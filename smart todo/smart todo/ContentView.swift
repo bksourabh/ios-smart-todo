@@ -106,7 +106,7 @@ struct ContentView: View {
                             pendingSharedText = nil
                         }
                 }
-                .onChange(of: pendingSharedText) { newValue in
+                .onChange(of: pendingSharedText) { _, newValue in
                     if newValue != nil {
                         showingNotesImport = true
                     }
@@ -313,6 +313,7 @@ struct ContentView: View {
                     .font(.system(size: 18))
                     .foregroundColor(.orange)
             }
+            .tourHighlight(for: .notesImportButton)
             .accessibilityLabel("Import from notes")
             .accessibilityHint("Import tasks from notes with smart grouping")
 

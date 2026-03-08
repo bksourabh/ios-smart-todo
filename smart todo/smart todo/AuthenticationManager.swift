@@ -93,9 +93,9 @@ final class AuthenticationManager: NSObject, ObservableObject {
         for entityName in entityNames {
             let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
             let batchDelete = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-            try? context.execute(batchDelete)
+            _ = try? context.execute(batchDelete)
         }
-        try? context.save()
+        _ = try? context.save()
 
         // Clear all UserDefaults
         if let appDomain = Bundle.main.bundleIdentifier {

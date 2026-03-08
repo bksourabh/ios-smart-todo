@@ -69,10 +69,14 @@ struct NotesImportView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    if currentStep == .review {
-                        Button("Back") {
-                            withAnimation {
-                                currentStep = .input
+                    HStack(spacing: 12) {
+                        HelpButton(screenType: .notesImport)
+
+                        if currentStep == .review {
+                            Button("Back") {
+                                withAnimation {
+                                    currentStep = .input
+                                }
                             }
                         }
                     }

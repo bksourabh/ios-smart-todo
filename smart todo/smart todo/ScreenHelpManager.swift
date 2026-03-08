@@ -14,6 +14,7 @@ enum ScreenType {
     case addEditTask
     case pointOfInterest
     case userProfile
+    case notesImport
 }
 
 struct HelpStep: Identifiable {
@@ -59,6 +60,24 @@ struct ScreenHelpContent {
                         description: "Swipe left on a task to reveal the delete option. You can also tap \"Clear Completed\" to remove all finished tasks.",
                         icon: "trash.circle.fill",
                         iconColor: .red
+                    ),
+                    HelpStep(
+                        title: "Import from Notes",
+                        description: "Tap the notes icon to paste text and import tasks. Apple Intelligence groups items by location (e.g., supermarket, pharmacy) and creates tasks with subtasks.",
+                        icon: "note.text",
+                        iconColor: .orange
+                    ),
+                    HelpStep(
+                        title: "Share from Notes App",
+                        description: "You can also share text directly from Apple Notes using the share menu. Smart Todo will appear as a share option and automatically start the import flow.",
+                        icon: "square.and.arrow.up",
+                        iconColor: .orange
+                    ),
+                    HelpStep(
+                        title: "Subtasks",
+                        description: "Imported tasks have subtasks with individual checkboxes. Tap subtask circles to check them off. When all subtasks are done, the parent task completes automatically.",
+                        icon: "checklist",
+                        iconColor: .green
                     ),
                     HelpStep(
                         title: "Points of Interest",
@@ -173,6 +192,44 @@ struct ScreenHelpContent {
                         description: "Tap Sign Out to log out of your account. You can sign in again anytime with your Apple ID.",
                         icon: "rectangle.portrait.and.arrow.right",
                         iconColor: .red
+                    )
+                ]
+            )
+
+        case .notesImport:
+            return ScreenHelpContent(
+                screenTitle: "Notes Import",
+                screenIcon: "note.text",
+                steps: [
+                    HelpStep(
+                        title: "Paste Your Notes",
+                        description: "Paste or type items from your notes. Items can be separated by new lines or commas. List prefixes like bullets and numbers are automatically stripped.",
+                        icon: "doc.on.clipboard",
+                        iconColor: .blue
+                    ),
+                    HelpStep(
+                        title: "AI-Powered Grouping",
+                        description: "Apple Intelligence analyzes your items and groups them by where they can be completed — supermarket, pharmacy, hardware store, and more.",
+                        icon: "wand.and.stars",
+                        iconColor: .purple
+                    ),
+                    HelpStep(
+                        title: "Review & Select",
+                        description: "Review the grouped tasks and select which groups to import. You can select or deselect individual groups before importing.",
+                        icon: "checkmark.rectangle.stack",
+                        iconColor: .green
+                    ),
+                    HelpStep(
+                        title: "Tasks with Subtasks",
+                        description: "Each group becomes a task with subtasks. For example, \"Supermarket\" with subtasks \"milk\" and \"tomatoes\". Check off subtasks individually.",
+                        icon: "checklist",
+                        iconColor: .orange
+                    ),
+                    HelpStep(
+                        title: "Share Extension",
+                        description: "You can also share text directly from Apple Notes or any app using the share menu. Smart Todo will open and start the import automatically.",
+                        icon: "square.and.arrow.up",
+                        iconColor: .orange
                     )
                 ]
             )

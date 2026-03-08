@@ -48,8 +48,19 @@ struct OnboardingView: View {
             ]
         ),
         OnboardingPage(
-            icon: "bell.badge.fill",
+            icon: "note.text",
             iconColor: .orange,
+            title: "Import from Notes",
+            subtitle: "Share text from Apple Notes or paste it directly. Apple Intelligence groups items by where they can be completed and creates tasks with subtasks.",
+            features: [
+                FeatureItem(icon: "square.and.arrow.up", text: "Share directly from Apple Notes"),
+                FeatureItem(icon: "wand.and.stars", text: "AI groups items by location"),
+                FeatureItem(icon: "checklist", text: "Subtasks with individual checkboxes")
+            ]
+        ),
+        OnboardingPage(
+            icon: "bell.badge.fill",
+            iconColor: .yellow,
             title: "Smart Notifications",
             subtitle: "Get reminded at the right time with flexible notification options.",
             features: [

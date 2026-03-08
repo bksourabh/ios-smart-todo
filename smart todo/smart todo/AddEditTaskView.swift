@@ -107,183 +107,10 @@ struct AddEditTaskView: View {
     var body: some View {
         NavigationView {
             Form {
-                // Task Title Section
-                Section {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 2)
-                                .frame(width: 24, height: 24)
-                        }
-
-                        TextField("What do you need to do?", text: $title)
-                            .font(.system(size: 17))
-                            .focused($isTitleFocused)
-                    }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text("Task")
-                } footer: {
-                    if title.isEmpty {
-                        Text("Enter a descriptive title for your task")
-                    }
-                }
-
-                // Subtasks Section
+                taskTitleSection
                 subTasksSection
-
-                // Only show Due Date section for time-based notifications
-                if notificationType == "time" {
-                    Section(header: Text("Due Date"), footer: dueDateFooter) {
-                        DatePicker("Due Date", selection: $dueDate, in: Date().addingTimeInterval(5 * 60 + 1)..., displayedComponents: [.date, .hourAndMinute])
-                            .onChange(of: dueDate) { oldValue, newValue in
-                                let now = Date()
-                                let fiveMinutesFromNow = now.addingTimeInterval(5 * 60)
-                                showingPastDateError = newValue <= now
-                                // Due date must be strictly more than 5 minutes in the future
-                                showingDateTooSoonError = newValue <= fiveMinutesFromNow
-                                // Clear errors if date is now valid (strictly more than 5 minutes)
-                                if newValue > fiveMinutesFromNow {
-                                    showingPastDateError = false
-                                    showingDateTooSoonError = false
-                                }
-                                // Revalidate notification when due date changes
-                                if notificationMinutes > 0 {
-                                    let notificationDate = newValue.addingTimeInterval(-Double(notificationMinutes) * 60)
-                                    showingNotificationPastError = notificationDate < Date()
-                                    // Clear error if notification is now valid
-                                    if notificationDate >= Date() {
-                                        showingNotificationPastError = false
-                                    }
-                                } else {
-                                    showingNotificationPastError = false
-                                }
-                            }
-                    }
-                }
-
-                Section(header: Text("Notification Type")) {
-                    // Notification type picker - always show all 3 options
-                    Picker("Type", selection: $notificationType) {
-                        HStack {
-                            Image(systemName: "wand.and.stars")
-                            Text("Smart")
-                        }.tag("smart")
-                        HStack {
-                            Image(systemName: "clock")
-                            Text("Time")
-                        }.tag("time")
-                        HStack {
-                            Image(systemName: "location")
-                            Text("Location")
-                        }.tag("location")
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                    .onChange(of: notificationType) { _, newValue in
-                        if newValue == "smart" {
-                            analyzeTaskForSmartNotification()
-                        }
-                    }
-
-                    // Smart notification info
-                    if notificationType == "smart" {
-                        smartNotificationSection
-                    }
-
-                    // Time-based options
-                    if notificationType == "time" {
-                        Picker(selection: $notificationMinutes, label: Text(notificationMinutes == 0 ? "Notify me x minutes before" : "Notify me \(notificationMinutes) minute\(notificationMinutes == 1 ? "" : "s") before")) {
-                            Text("No notification").tag(0)
-                            ForEach(1...60, id: \.self) { minutes in
-                                Text("\(minutes) minute\(minutes == 1 ? "" : "s")").tag(minutes)
-                            }
-                        }
-                        .onChange(of: notificationMinutes) { oldValue, newValue in
-                            if newValue > 0 {
-                                let notificationDate = dueDate.addingTimeInterval(-Double(newValue) * 60)
-                                showingNotificationPastError = notificationDate < Date()
-                                if notificationDate >= Date() {
-                                    showingNotificationPastError = false
-                                }
-                            } else {
-                                showingNotificationPastError = false
-                            }
-                        }
-
-                        if showingNotificationPastError {
-                            Label("Notification time would be in the past", systemImage: "exclamationmark.circle.fill")
-                                .font(.caption)
-                                .foregroundColor(.red)
-                        }
-                    }
-
-                    // Location-based options
-                    if notificationType == "location" {
-                        if !isLocationNotificationsEnabled {
-                            // Location notifications disabled - show info
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "location.slash.fill")
-                                        .foregroundColor(.orange)
-                                        .font(.caption)
-                                    Text("Location-based notifications require \"Always Allow\" location permission.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-
-                                Button(action: openLocationSettings) {
-                                    HStack {
-                                        Image(systemName: "gear")
-                                        Text("Open Settings")
-                                    }
-                                    .font(.caption)
-                                }
-                            }
-                        } else {
-                            Picker("Notification Distance", selection: $locationNotificationDistance) {
-                                ForEach(1...50, id: \.self) { distance in
-                                    Text("\(distance) metre\(distance == 1 ? "" : "s")").tag(distance)
-                                }
-                            }
-
-                            if pointsOfInterest.isEmpty {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("No points of interest available")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                    Button(action: {
-                                        showingAddPOI = true
-                                    }) {
-                                        HStack {
-                                            Image(systemName: "plus.circle.fill")
-                                            Text("Add Point of Interest")
-                                        }
-                                    }
-                                }
-                            } else {
-                                Picker("Location", selection: $selectedPOI) {
-                                    Text("Select a location").tag(nil as PointOfInterest?)
-                                    ForEach(pointsOfInterest) { poi in
-                                        Text(poi.name ?? "Unnamed").tag(poi as PointOfInterest?)
-                                    }
-                                }
-
-                                if let poi = selectedPOI {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        if let address = poi.address, !address.isEmpty {
-                                            Text(address)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        Text("Notify when \(locationNotificationDistance) metre\(locationNotificationDistance == 1 ? "" : "s") away")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                dueDateSection
+                notificationTypeSection
             }
             .navigationTitle(isEditing ? "Edit Task" : "New Task")
             .navigationBarTitleDisplayMode(.inline)
@@ -374,6 +201,193 @@ struct AddEditTaskView: View {
         .navigationViewStyle(.stack)
     }
     
+    // MARK: - Task Title Section
+
+    private var taskTitleSection: some View {
+        Section {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 2)
+                        .frame(width: 24, height: 24)
+                }
+
+                TextField("What do you need to do?", text: $title)
+                    .font(.system(size: 17))
+                    .focused($isTitleFocused)
+            }
+            .padding(.vertical, 4)
+        } header: {
+            Text("Task")
+        } footer: {
+            if title.isEmpty {
+                Text("Enter a descriptive title for your task")
+            }
+        }
+    }
+
+    // MARK: - Due Date Section
+
+    @ViewBuilder
+    private var dueDateSection: some View {
+        if notificationType == "time" {
+            Section(header: Text("Due Date"), footer: dueDateFooter) {
+                DatePicker("Due Date", selection: $dueDate, in: Date().addingTimeInterval(5 * 60 + 1)..., displayedComponents: [.date, .hourAndMinute])
+                    .onChange(of: dueDate) { oldValue, newValue in
+                        let now = Date()
+                        let fiveMinutesFromNow = now.addingTimeInterval(5 * 60)
+                        showingPastDateError = newValue <= now
+                        showingDateTooSoonError = newValue <= fiveMinutesFromNow
+                        if newValue > fiveMinutesFromNow {
+                            showingPastDateError = false
+                            showingDateTooSoonError = false
+                        }
+                        if notificationMinutes > 0 {
+                            let notificationDate = newValue.addingTimeInterval(-Double(notificationMinutes) * 60)
+                            showingNotificationPastError = notificationDate < Date()
+                            if notificationDate >= Date() {
+                                showingNotificationPastError = false
+                            }
+                        } else {
+                            showingNotificationPastError = false
+                        }
+                    }
+            }
+        }
+    }
+
+    // MARK: - Notification Type Section
+
+    private var notificationTypeSection: some View {
+        Section(header: Text("Notification Type")) {
+            notificationTypePicker
+            notificationTypeContent
+        }
+    }
+
+    private var notificationTypePicker: some View {
+        Picker("Type", selection: $notificationType) {
+            Text("Smart").tag("smart")
+            Text("Time").tag("time")
+            Text("Location").tag("location")
+        }
+        .pickerStyle(SegmentedPickerStyle())
+        .onChange(of: notificationType) { _, newValue in
+            if newValue == "smart" {
+                analyzeTaskForSmartNotification()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var notificationTypeContent: some View {
+        if notificationType == "smart" {
+            smartNotificationSection
+        } else if notificationType == "time" {
+            timeNotificationContent
+        } else if notificationType == "location" {
+            locationNotificationContent
+        }
+    }
+
+    @ViewBuilder
+    private var timeNotificationContent: some View {
+        Picker(selection: $notificationMinutes, label: Text(notificationMinutes == 0 ? "Notify me x minutes before" : "Notify me \(notificationMinutes) minute\(notificationMinutes == 1 ? "" : "s") before")) {
+            Text("No notification").tag(0)
+            ForEach(1...60, id: \.self) { minutes in
+                Text("\(minutes) minute\(minutes == 1 ? "" : "s")").tag(minutes)
+            }
+        }
+        .onChange(of: notificationMinutes) { oldValue, newValue in
+            if newValue > 0 {
+                let notificationDate = dueDate.addingTimeInterval(-Double(newValue) * 60)
+                showingNotificationPastError = notificationDate < Date()
+                if notificationDate >= Date() {
+                    showingNotificationPastError = false
+                }
+            } else {
+                showingNotificationPastError = false
+            }
+        }
+
+        if showingNotificationPastError {
+            Label("Notification time would be in the past", systemImage: "exclamationmark.circle.fill")
+                .font(.caption)
+                .foregroundColor(.red)
+        }
+    }
+
+    @ViewBuilder
+    private var locationNotificationContent: some View {
+        if !isLocationNotificationsEnabled {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "location.slash.fill")
+                        .foregroundColor(.orange)
+                        .font(.caption)
+                    Text("Location-based notifications require \"Always Allow\" location permission.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Button(action: openLocationSettings) {
+                    HStack {
+                        Image(systemName: "gear")
+                        Text("Open Settings")
+                    }
+                    .font(.caption)
+                }
+            }
+        } else {
+            locationEnabledContent
+        }
+    }
+
+    @ViewBuilder
+    private var locationEnabledContent: some View {
+        Picker("Notification Distance", selection: $locationNotificationDistance) {
+            ForEach(1...50, id: \.self) { distance in
+                Text("\(distance) metre\(distance == 1 ? "" : "s")").tag(distance)
+            }
+        }
+
+        if pointsOfInterest.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("No points of interest available")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Button(action: {
+                    showingAddPOI = true
+                }) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Add Point of Interest")
+                    }
+                }
+            }
+        } else {
+            Picker("Location", selection: $selectedPOI) {
+                Text("Select a location").tag(nil as PointOfInterest?)
+                ForEach(pointsOfInterest) { poi in
+                    Text(poi.name ?? "Unnamed").tag(poi as PointOfInterest?)
+                }
+            }
+
+            if let poi = selectedPOI {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let address = poi.address, !address.isEmpty {
+                        Text(address)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Text("Notify when \(locationNotificationDistance) metre\(locationNotificationDistance == 1 ? "" : "s") away")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
     private func openLocationSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
@@ -523,7 +537,7 @@ struct AddEditTaskView: View {
 
                     Button(action: {
                         let i = index
-                        withAnimation {
+                        let _ = withAnimation {
                             subTaskTitles.remove(at: i)
                         }
                     }) {
